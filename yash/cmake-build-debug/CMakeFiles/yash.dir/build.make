@@ -43,10 +43,10 @@ RM = /opt/clion-2017.2.2/bin/cmake/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/matt/CLionProjects/yash
+CMAKE_SOURCE_DIR = /home/matt/CLionProjects/SystemsProg/yash
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/matt/CLionProjects/yash/cmake-build-debug
+CMAKE_BINARY_DIR = /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug
 
 # Include any dependencies generated for this target.
 include CMakeFiles/yash.dir/depend.make
@@ -59,16 +59,16 @@ include CMakeFiles/yash.dir/flags.make
 
 CMakeFiles/yash.dir/main.c.o: CMakeFiles/yash.dir/flags.make
 CMakeFiles/yash.dir/main.c.o: ../main.c
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/yash.dir/main.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -o CMakeFiles/yash.dir/main.c.o   -c /home/matt/CLionProjects/yash/main.c
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/yash.dir/main.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -o CMakeFiles/yash.dir/main.c.o   -c /home/matt/CLionProjects/SystemsProg/yash/main.c
 
 CMakeFiles/yash.dir/main.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/yash.dir/main.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/matt/CLionProjects/yash/main.c > CMakeFiles/yash.dir/main.c.i
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/matt/CLionProjects/SystemsProg/yash/main.c > CMakeFiles/yash.dir/main.c.i
 
 CMakeFiles/yash.dir/main.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/yash.dir/main.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/matt/CLionProjects/yash/main.c -o CMakeFiles/yash.dir/main.c.s
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/matt/CLionProjects/SystemsProg/yash/main.c -o CMakeFiles/yash.dir/main.c.s
 
 CMakeFiles/yash.dir/main.c.o.requires:
 
@@ -81,17 +81,43 @@ CMakeFiles/yash.dir/main.c.o.provides: CMakeFiles/yash.dir/main.c.o.requires
 CMakeFiles/yash.dir/main.c.o.provides.build: CMakeFiles/yash.dir/main.c.o
 
 
+CMakeFiles/yash.dir/helpers.c.o: CMakeFiles/yash.dir/flags.make
+CMakeFiles/yash.dir/helpers.c.o: helpers.c
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/yash.dir/helpers.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -o CMakeFiles/yash.dir/helpers.c.o   -c /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.c
+
+CMakeFiles/yash.dir/helpers.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/yash.dir/helpers.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.c > CMakeFiles/yash.dir/helpers.c.i
+
+CMakeFiles/yash.dir/helpers.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/yash.dir/helpers.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.c -o CMakeFiles/yash.dir/helpers.c.s
+
+CMakeFiles/yash.dir/helpers.c.o.requires:
+
+.PHONY : CMakeFiles/yash.dir/helpers.c.o.requires
+
+CMakeFiles/yash.dir/helpers.c.o.provides: CMakeFiles/yash.dir/helpers.c.o.requires
+	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.o.provides.build
+.PHONY : CMakeFiles/yash.dir/helpers.c.o.provides
+
+CMakeFiles/yash.dir/helpers.c.o.provides.build: CMakeFiles/yash.dir/helpers.c.o
+
+
 # Object files for target yash
 yash_OBJECTS = \
-"CMakeFiles/yash.dir/main.c.o"
+"CMakeFiles/yash.dir/main.c.o" \
+"CMakeFiles/yash.dir/helpers.c.o"
 
 # External object files for target yash
 yash_EXTERNAL_OBJECTS =
 
 yash: CMakeFiles/yash.dir/main.c.o
+yash: CMakeFiles/yash.dir/helpers.c.o
 yash: CMakeFiles/yash.dir/build.make
 yash: CMakeFiles/yash.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking C executable yash"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking C executable yash"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/yash.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -100,6 +126,7 @@ CMakeFiles/yash.dir/build: yash
 .PHONY : CMakeFiles/yash.dir/build
 
 CMakeFiles/yash.dir/requires: CMakeFiles/yash.dir/main.c.o.requires
+CMakeFiles/yash.dir/requires: CMakeFiles/yash.dir/helpers.c.o.requires
 
 .PHONY : CMakeFiles/yash.dir/requires
 
@@ -108,6 +135,6 @@ CMakeFiles/yash.dir/clean:
 .PHONY : CMakeFiles/yash.dir/clean
 
 CMakeFiles/yash.dir/depend:
-	cd /home/matt/CLionProjects/yash/cmake-build-debug && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/matt/CLionProjects/yash /home/matt/CLionProjects/yash /home/matt/CLionProjects/yash/cmake-build-debug /home/matt/CLionProjects/yash/cmake-build-debug /home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles/yash.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/matt/CLionProjects/SystemsProg/yash /home/matt/CLionProjects/SystemsProg/yash /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles/yash.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/yash.dir/depend
 

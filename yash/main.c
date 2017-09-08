@@ -3,6 +3,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
+#include "helpers.h"
 #include <sys/types.h>
 
 //constant values
@@ -13,29 +14,16 @@
 #define EXIT_YASH 0
 
 //function declarations
-char *readLineIn(void);
-char **parseLine(char *line);
 int executeLine(char **args);
 void mainLoop(void);
-int countArgs(char **args);
 int startPipedOperation(char **args1, char **args2);
 int startOperation(char **args);
-int pipeQty(char **args);
-int pipeBGExclusiveCheck(char **args);
 static void sig_int(int signo);
 static void sig_tstp(int signo);
-void splitPipedArgs(char **args);
-struct PipedArgs getTwoArgs(char **args);
+void intHandler(int sig);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
-
-//Structs
-struct PipedArgs
-{
-    char **args1;
-    char **args2;
-};
 
 //main to take arguments and start a loop
 int main(int argc, char **argv)
@@ -55,61 +43,20 @@ void mainLoop(void)
     //read input line
     //parse input
     //stay in loop until an exit is requested
+    //while waiting for user input SIGINT is ignored so ctrl+c will not stop the shell
     do
     {
+        signal(SIGINT, intHandler);
         printf("# ");
         line = readLineIn();
         if(strcmp(line,"") == 0) continue;
         args = parseLine(line);
         status = executeLine(args);
+        free(args);
         printf("\n");
+        signal(SIGINT, intHandler);
     } while(status);
     return;
-}
-
-//read input until end of file or new line
-char *readLineIn(void)
-{
-    //TODO: will have memory leak here unless line is freed
-    char *line = calloc(MAX_INPUT_LENGTH + 1, sizeof(char));
-    int i = 0;
-
-    if(!line)
-    {
-        fprintf(stderr,"line in memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    line = fgets(line,MAX_INPUT_LENGTH+1,stdin);
-    if(line == NULL) exit(EXIT_FAILURE);
-    if(strcmp(line,"\n") == 0) return "";
-
-    return line;
-}
-
-//parse the input line into arguments and return array of args
-char **parseLine(char *line)
-{
-    //TODO: will have memory leak here unless arg and args are freed
-    char **args = malloc(MAX_INPUT_LENGTH * sizeof(char*));
-    char *arg = malloc(MAX_INPUT_LENGTH * sizeof(char));
-    int i = 0;
-    const char *delim = DELIMS;
-
-    char *lineCopy;
-    lineCopy = strdup(line);
-    while(arg != NULL)
-    {
-        arg = strsep(&lineCopy,delim);
-        if(arg == NULL) break;
-        //TODO: multiple spaces in a row throws off args
-        args[i] = arg;
-        //*********************only print input during testing*****************
-        printf("%s\n",args[i]);
-        //*********************************************************************
-        i++;
-    }
-    return args;
 }
 
 int executeLine(char **args)
@@ -119,26 +66,26 @@ int executeLine(char **args)
     int inputPiped = pipeQty(args);
     printf("INPUT PIPED: %d\n",inputPiped);
 
-    if(inputPiped > 0)
+    //make sure & and | are not both in the argument
+    if(!pipeBGExclusive(args))
+    {
+        printf("Cannot background and pipeline commands "
+                       "('&' and '|' must be used separately).");
+        return FINISHED_INPUT;
+    }
+
+    //if there is a | in the argument then
+    if(inputPiped == 1)
     {
         struct PipedArgs pipedArgs = getTwoArgs(args);
         return startPipedOperation(pipedArgs.args1, pipedArgs.args2);
-    }
-    return startOperation(args);
-}
-
-//determine how many arguments were given to input
-int countArgs(char **args)
-{
-    if(!*args) return 0;
-    int numArgs = 0;
-    int i=0;
-    while(args[i] != NULL)
+    } else if (inputPiped > 1)
     {
-        numArgs++;
-        i++;
+        printf("Only one '|' allowed per line");
+        return FINISHED_INPUT;
     }
-    return numArgs++;
+
+    return startOperation(args);
 }
 
 int startOperation(char **args)
@@ -149,28 +96,29 @@ int startOperation(char **args)
     pid = fork();
     if(pid == 0)
     {
+        printf("PID value: %d\n", pid);
         if(execvp(args[0], args) == -1)
         {
-            perror("problem executing command");
+            perror("Problem executing command");
+            _Exit(EXIT_FAILURE);
+            return FINISHED_INPUT;
         }
-        return FINISHED_INPUT;
     } else if(pid < 0)
     {
         perror("error forking");
     } else
     {
         int count = 0;
-        while(count<2)
+        while(count<1)
         {
             wpid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
             if(wpid == -1)
             {
                 perror("waitpid");
-                return FINISHED_INPUT;
+                break;
             }
             if(WIFEXITED(status))
             {
-                printf("child_%d_exited,_status=%d\n", wpid, WEXITSTATUS(status));
                 count++;
             } else if(WIFSIGNALED(status))
             {
@@ -197,8 +145,6 @@ int startPipedOperation(char **args1, char **args2)
 {
     int status;
     int pfd[2];
-    int arg1Count = countArgs(args1);
-    int arg2Count = countArgs(args2);
 
     if (pipe(pfd) == -1)
     {
@@ -232,11 +178,11 @@ int startPipedOperation(char **args1, char **args2)
                 if(pid == -1)
                 {
                     perror("waitpid");
+                    _Exit(EXIT_FAILURE);
                     return FINISHED_INPUT;
                 }
                 if(WIFEXITED(status))
                 {
-                    printf("child_%d_exited,_status=%d\n", pid, WEXITSTATUS(status));
                     count++;
                 } else if(WIFSIGNALED(status))
                 {
@@ -261,47 +207,27 @@ int startPipedOperation(char **args1, char **args2)
             setpgid(0, pid_ch1);
             close(pfd[1]);
             dup2(pfd[0],STDIN_FILENO);
-            execvp(args2[0], args2);
+            if(execvp(args2[0], args2) == -1)
+            {
+                perror("Problem executing command");
+                _Exit(EXIT_FAILURE);
+                return FINISHED_INPUT;
+            }
         }
     } else
     {
         setsid();
         close(pfd[0]);
         dup2(pfd[1], STDOUT_FILENO);
-        execvp(args1[0], args1);
+        if(execvp(args1[0], args1) == -1)
+        {
+            perror("Problem executing command");
+            _Exit(EXIT_FAILURE);
+            return FINISHED_INPUT;
+        }
     }
 
     return FINISHED_INPUT;
-}
-
-//returns how many '|' are in the arguments
-int pipeQty(char **args)
-{
-    int pipeCount = 0;
-    int numArgs = countArgs(args);
-    for (int i=0; i<numArgs;i++)
-    {
-        if(strstr(args[i],"|")) pipeCount++;
-    }
-    return pipeCount;
-}
-
-//returns 0 if pipe and & are not exclusive
-int pipeBGExclusiveCheck(char **args)
-{
-    int pipeCount = 0;
-    int backgroundCount = 0;
-    int numArgs = countArgs(args);
-    for (int i=0; i<numArgs; i++)
-    {
-        if(strstr(args[i],"|")) pipeCount++;
-        if(strstr(args[i],"&")) backgroundCount++;
-    }
-    if((pipeCount>0) && (backgroundCount>0))
-    {
-        return 0;
-    }
-    return 1;
 }
 
 static void sig_int(int signo)
@@ -316,32 +242,11 @@ static void sig_tstp(int signo)
     printf("\nsig_tstp caught");
 }
 
-struct PipedArgs getTwoArgs(char **args)
+
+void intHandler(int sig)
 {
-    char **args1 = malloc(sizeof(char*) * MAX_INPUT_LENGTH);
-    char **args2 = malloc(sizeof(char*) * MAX_INPUT_LENGTH);
-    int numArgs = countArgs(args);
-    int i = 0;
-    while(!strstr(args[i],"|"))
-    {
-        args1[i] = args[i];
-        printf("%s",args1[i]);
-        i++;
-    };
-    args1[i] = NULL;
-    i++;
-    int j = 0;
-    while(i < numArgs)
-    {
-        args2[j] = args[i];
-        i++;
-        j++;
-    };
-    args2[j] = NULL;
-    struct PipedArgs pipedArgs = {args1, args2};
-    printf("Piped Args args1: %s\nPiped Args args2: %s\n", pipedArgs.args1[0], pipedArgs.args2[0]);
-    return pipedArgs;
+    signal(sig, SIG_IGN);
+    signal(SIGINT,intHandler);
 }
 
-//TODO:for ctrl+d to kill program spawn thread at beginning and have that thread wait for ctrl+d
-//then send sigkill to parent
+//TODO: make sure ctrl + d kills processes before quitting

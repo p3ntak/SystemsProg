@@ -48,10 +48,10 @@ RM = /opt/clion-2017.2.2/bin/cmake/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/matt/CLionProjects/yash
+CMAKE_SOURCE_DIR = /home/matt/CLionProjects/SystemsProg/yash
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/matt/CLionProjects/yash/cmake-build-debug
+CMAKE_BINARY_DIR = /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles /home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -123,6 +123,33 @@ yash/fast:
 	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/build
 .PHONY : yash/fast
 
+helpers.o: helpers.c.o
+
+.PHONY : helpers.o
+
+# target to build an object file
+helpers.c.o:
+	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.o
+.PHONY : helpers.c.o
+
+helpers.i: helpers.c.i
+
+.PHONY : helpers.i
+
+# target to preprocess a source file
+helpers.c.i:
+	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.i
+.PHONY : helpers.c.i
+
+helpers.s: helpers.c.s
+
+.PHONY : helpers.s
+
+# target to generate assembly for a file
+helpers.c.s:
+	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.s
+.PHONY : helpers.c.s
+
 main.o: main.c.o
 
 .PHONY : main.o
@@ -159,6 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... yash"
+	@echo "... helpers.o"
+	@echo "... helpers.i"
+	@echo "... helpers.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

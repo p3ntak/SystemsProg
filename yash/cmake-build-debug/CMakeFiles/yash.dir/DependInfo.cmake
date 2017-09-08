@@ -4,7 +4,8 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_C
-  "/home/matt/CLionProjects/yash/main.c" "/home/matt/CLionProjects/yash/cmake-build-debug/CMakeFiles/yash.dir/main.c.o"
+  "/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.c" "/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles/yash.dir/helpers.c.o"
+  "/home/matt/CLionProjects/SystemsProg/yash/main.c" "/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/CMakeFiles/yash.dir/main.c.o"
   )
 set(CMAKE_C_COMPILER_ID "GNU")
 
