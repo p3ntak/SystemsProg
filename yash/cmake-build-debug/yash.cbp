@@ -84,10 +84,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.c">
-			<Option target="yash"/>
-		</Unit>
-		<Unit filename="/home/matt/CLionProjects/SystemsProg/yash/cmake-build-debug/helpers.h">
+		<Unit filename="/home/matt/CLionProjects/SystemsProg/yash/helpers.h">
 			<Option target="yash"/>
 		</Unit>
 		<Unit filename="/home/matt/CLionProjects/SystemsProg/yash/main.c">

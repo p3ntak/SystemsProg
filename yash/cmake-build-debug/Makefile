@@ -123,33 +123,6 @@ yash/fast:
 	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/build
 .PHONY : yash/fast
 
-helpers.o: helpers.c.o
-
-.PHONY : helpers.o
-
-# target to build an object file
-helpers.c.o:
-	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.o
-.PHONY : helpers.c.o
-
-helpers.i: helpers.c.i
-
-.PHONY : helpers.i
-
-# target to preprocess a source file
-helpers.c.i:
-	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.i
-.PHONY : helpers.c.i
-
-helpers.s: helpers.c.s
-
-.PHONY : helpers.s
-
-# target to generate assembly for a file
-helpers.c.s:
-	$(MAKE) -f CMakeFiles/yash.dir/build.make CMakeFiles/yash.dir/helpers.c.s
-.PHONY : helpers.c.s
-
 main.o: main.c.o
 
 .PHONY : main.o
@@ -186,9 +159,6 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... yash"
-	@echo "... helpers.o"
-	@echo "... helpers.i"
-	@echo "... helpers.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

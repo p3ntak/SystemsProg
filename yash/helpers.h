@@ -17,6 +17,7 @@ int countArgs(char **args);
 int pipeQty(char **args);
 int pipeBGExclusive(char **args);
 struct PipedArgs getTwoArgs(char **args);
+void printStrArr(int arrLength, char *varName, char **arr);
 
 #include "helpers.h"
 #include <stdlib.h>
@@ -24,7 +25,7 @@ struct PipedArgs getTwoArgs(char **args);
 #include <string.h>
 
 #define MAX_INPUT_LENGTH 200
-#define DELIMS " "
+#define DELIMS " \n"
 
 //returns how many '|' are in the arguments
 int pipeQty(char **args)
@@ -98,18 +99,18 @@ char *readLineIn(void)
 char **parseLine(char *line)
 {
     char **args = malloc(MAX_INPUT_LENGTH * sizeof(char*));
-    char *arg = malloc((MAX_INPUT_LENGTH + 1) * sizeof(char));
+    char *arg;
     int i = 0;
     const char *delim = DELIMS;
 
     char *lineCopy;
     lineCopy = strdup(line);
-    while(arg != NULL)
-    {
+
+    do {
         arg = strsep(&lineCopy,delim);
         if(arg == NULL)
         {
-            args[i] = arg;
+            //args[i] = arg;
             break;
         }
         //TODO: multiple spaces in a row throws off args
@@ -118,10 +119,10 @@ char **parseLine(char *line)
         printf("%s\n",args[i]);
         //*********************************************************************
         i++;
-    }
-    free(arg);
+    } while(arg != NULL);
     return args;
 }
+
 
 struct PipedArgs getTwoArgs(char **args)
 {
@@ -132,12 +133,12 @@ struct PipedArgs getTwoArgs(char **args)
     int k = 0;
     while(!strstr(args[i],"|"))
     {
-        args1[i] = args[i];
-        printf("%s",args1[i]);
+        args1[k] = args[i];
+        printf("%s\n",args1[i]);
         i++;
         k++;
     };
-    args1[i] = NULL;
+    args1[k] = NULL;
     i++;
     int j = 0;
     while(i < numArgs)
@@ -148,9 +149,15 @@ struct PipedArgs getTwoArgs(char **args)
     };
     args2[j] = NULL;
     struct PipedArgs pipedArgs = {args1, args2};
-    free(args1);
-    free(args2);
     return pipedArgs;
+}
+
+void printStrArr(int arrLength, char *varName, char **arr)
+{
+    for(int i=0; i<arrLength; i++)
+    {
+        printf("%s[%d]: %s\n", varName, i, arr[i]);
+    }
 }
 
 #endif //YASH_HELPERS_H

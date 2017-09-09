@@ -7,11 +7,7 @@
 #include <sys/types.h>
 
 //constant values
-#define MAX_INPUT_LENGTH 200
-#define DELIMS " "
-#define OPERATORS "&><|"
 #define FINISHED_INPUT 1
-#define EXIT_YASH 0
 
 //function declarations
 int executeLine(char **args);
@@ -20,7 +16,7 @@ int startPipedOperation(char **args1, char **args2);
 int startOperation(char **args);
 static void sig_int(int signo);
 static void sig_tstp(int signo);
-void intHandler(int sig);
+static void sig_handler(int signo);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
@@ -34,6 +30,7 @@ int main(int argc, char **argv)
     return EXIT_SUCCESS;
 }
 
+
 void mainLoop(void)
 {
     int status = 1;
@@ -46,25 +43,26 @@ void mainLoop(void)
     //while waiting for user input SIGINT is ignored so ctrl+c will not stop the shell
     do
     {
-        signal(SIGINT, intHandler);
+        // ignore sigint and sigtstp while no processes
+        signal(SIGINT, sig_handler);
+        signal(SIGTSTP, sig_handler);
         printf("# ");
         line = readLineIn();
         if(strcmp(line,"") == 0) continue;
         args = parseLine(line);
         status = executeLine(args);
-        free(args);
         printf("\n");
-        signal(SIGINT, intHandler);
     } while(status);
     return;
 }
 
+
 int executeLine(char **args)
 {
     if(!*args) return FINISHED_INPUT;
+    int returnVal;
 
     int inputPiped = pipeQty(args);
-    printf("INPUT PIPED: %d\n",inputPiped);
 
     //make sure & and | are not both in the argument
     if(!pipeBGExclusive(args))
@@ -78,41 +76,58 @@ int executeLine(char **args)
     if(inputPiped == 1)
     {
         struct PipedArgs pipedArgs = getTwoArgs(args);
-        return startPipedOperation(pipedArgs.args1, pipedArgs.args2);
+        returnVal = startPipedOperation(pipedArgs.args1, pipedArgs.args2);
+        free(pipedArgs.args1);
+        free(pipedArgs.args2);
+        return returnVal;
     } else if (inputPiped > 1)
     {
         printf("Only one '|' allowed per line");
         return FINISHED_INPUT;
     }
 
-    return startOperation(args);
+    returnVal = startOperation(args);
+    free(args);
+    return returnVal;
 }
+
 
 int startOperation(char **args)
 {
-    pid_t pid, wpid;
+//    pid_t pid_ch1, pid;
     int status;
 
-    pid = fork();
-    if(pid == 0)
+    //input args are coming in with an extra argument of "", this cleans that argument to NULL
+    int numArgs = countArgs(args);
+    args[numArgs-1] = NULL;
+
+    pid_ch1 = fork();
+    if(pid_ch1 == 0)
     {
-        printf("PID value: %d\n", pid);
         if(execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
             _Exit(EXIT_FAILURE);
             return FINISHED_INPUT;
         }
-    } else if(pid < 0)
+    } else if(pid_ch1 < 0)
     {
         perror("error forking");
     } else
     {
+        if(signal(SIGINT, sig_int) == SIG_ERR)
+        {
+            printf("signal(SIGINT)_error");
+        }
+        if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
+        {
+            printf("signal(SIGTSTP)_error");
+        }
         int count = 0;
         while(count<1)
         {
-            wpid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
-            if(wpid == -1)
+            pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
+            if(pid == -1)
             {
                 perror("waitpid");
                 break;
@@ -122,17 +137,13 @@ int startOperation(char **args)
                 count++;
             } else if(WIFSIGNALED(status))
             {
-                printf("child_%d_killed_by_signal%d\n", wpid, WTERMSIG(status));
                 count++;
             } else if(WIFSTOPPED(status))
             {
-                printf("child_%d_stopped_by_signal%d\n", wpid, WSTOPSIG(status));
-                printf("Sending_CONT_to_%d\n", wpid);
-                sleep(4);
-                kill(wpid, SIGCONT);
+                count++;
             } else if(WIFCONTINUED(status))
             {
-                printf("Continuing_%d\n", wpid);
+                printf("Continuing_%d\n", pid);
             }
         }
         return FINISHED_INPUT;
@@ -140,6 +151,7 @@ int startOperation(char **args)
 
     return FINISHED_INPUT;
 }
+
 
 int startPipedOperation(char **args1, char **args2)
 {
@@ -149,17 +161,23 @@ int startPipedOperation(char **args1, char **args2)
     if (pipe(pfd) == -1)
     {
         perror("pipe");
-        exit(-1);
+        return FINISHED_INPUT;
     }
+
+    //input args are coming in with an extra argument of "", this cleans that argument to NULL
+
+    int numArgs = countArgs(args2);
+    args2[numArgs-1] = NULL;
+
 
     pid_ch1 = fork();
     if(pid_ch1 > 0)
     {
         printf("Child1_pid_=_%d\n",pid_ch1);
+        //parent
         pid_ch2 = fork();
         if(pid_ch2 > 0)
         {
-            //parent
             printf("Child2_pid_=_%d\n",pid_ch2);
             if(signal(SIGINT, sig_int) == SIG_ERR)
             {
@@ -178,7 +196,6 @@ int startPipedOperation(char **args1, char **args2)
                 if(pid == -1)
                 {
                     perror("waitpid");
-                    _Exit(EXIT_FAILURE);
                     return FINISHED_INPUT;
                 }
                 if(WIFEXITED(status))
@@ -199,7 +216,7 @@ int startPipedOperation(char **args1, char **args2)
                     printf("Continuing_%d\n", pid);
                 }
             }
-            exit(1);
+            return FINISHED_INPUT;
         } else
         {
             // child 2
@@ -209,7 +226,7 @@ int startPipedOperation(char **args1, char **args2)
             dup2(pfd[0],STDIN_FILENO);
             if(execvp(args2[0], args2) == -1)
             {
-                perror("Problem executing command");
+                perror("Problem executing command 2");
                 _Exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
@@ -221,20 +238,21 @@ int startPipedOperation(char **args1, char **args2)
         dup2(pfd[1], STDOUT_FILENO);
         if(execvp(args1[0], args1) == -1)
         {
-            perror("Problem executing command");
+            perror("Problem executing command 1");
             _Exit(EXIT_FAILURE);
             return FINISHED_INPUT;
         }
     }
-
     return FINISHED_INPUT;
 }
+
 
 static void sig_int(int signo)
 {
     kill(-pid_ch1, SIGINT);
     printf("\nsig_int caught");
 }
+
 
 static void sig_tstp(int signo)
 {
@@ -243,10 +261,21 @@ static void sig_tstp(int signo)
 }
 
 
-void intHandler(int sig)
-{
-    signal(sig, SIG_IGN);
-    signal(SIGINT,intHandler);
+static void sig_handler(int signo) {
+    switch(signo){
+        case SIGINT:
+            signal(signo,SIG_IGN);
+            signal(SIGINT,sig_handler);
+            break;
+        case SIGTSTP:
+            printf("Caught sig_ign");
+            signal(signo,SIG_IGN);
+            signal(SIGTSTP,sig_handler);
+            break;
+        default:
+            return;
+    }
+
 }
 
 //TODO: make sure ctrl + d kills processes before quitting
