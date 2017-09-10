@@ -6,11 +6,9 @@
 #include "helpers.h"
 #include <sys/types.h>
 
-//constant values
-#define FINISHED_INPUT 1
 
 //function declarations
-int executeLine(char **args);
+int executeLine(char **args, char *line);
 void mainLoop(void);
 int startPipedOperation(char **args1, char **args2);
 int startOperation(char **args);
@@ -20,22 +18,31 @@ static void sig_handler(int signo);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
+int jobsNumber; //only goes up
+int activeJobsSize; //goes up and down as jobs finish
+struct Job *jobs;
+int *pjobsNumber = &jobsNumber;
+int *pactiveJobsSize = &activeJobsSize;
 
 //main to take arguments and start a loop
 int main(int argc, char **argv)
 {
+    jobs = malloc(sizeof(struct Job) * MAX_NUMBER_JOBS);
 
     mainLoop();
 
+    free(jobs);
     return EXIT_SUCCESS;
 }
 
 
 void mainLoop(void)
 {
-    int status = 1;
+    int status;
     char *line;
     char **args;
+    jobsNumber = 0;
+
 
     //read input line
     //parse input
@@ -50,17 +57,44 @@ void mainLoop(void)
         line = readLineIn();
         if(strcmp(line,"") == 0) continue;
         args = parseLine(line);
-        status = executeLine(args);
+        status = executeLine(args, line);
         printf("\n");
     } while(status);
     return;
 }
 
 
-int executeLine(char **args)
+int executeLine(char **args, char *line)
 {
     if(!*args) return FINISHED_INPUT;
     int returnVal;
+
+    //input args are coming in with an extra argument of "", this cleans that argument to NULL
+    int numArgs = countArgs(args);
+    args[numArgs-1] = NULL;
+
+//    if(!(
+//            (strcmp(args[0], BUILT_IN_BG) == 0) ||
+//            (strcmp(args[0], BUILT_IN_FG) == 0) ||
+//            (strcmp(args[0], BUILT_IN_JOBS) == 0)))
+//    {
+//        addToJobs(jobs, line, pjobsNumber, pactiveJobsSize);
+//    }
+
+    addToJobs(jobs, line, pjobsNumber, pactiveJobsSize);
+
+    if(strcmp(args[0], BUILT_IN_BG) == 0)
+    {
+        return yash_bg(args);
+    }
+    if(strcmp(args[0], BUILT_IN_FG) == 0)
+    {
+        return yash_fg(args);
+    }
+    if(strcmp(args[0], BUILT_IN_JOBS) == 0)
+    {
+        return yash_jobs(jobs, activeJobsSize);
+    }
 
     int inputPiped = pipeQty(args);
 
@@ -97,10 +131,6 @@ int startOperation(char **args)
 //    pid_t pid_ch1, pid;
     int status;
 
-    //input args are coming in with an extra argument of "", this cleans that argument to NULL
-    int numArgs = countArgs(args);
-    args[numArgs-1] = NULL;
-
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
@@ -123,6 +153,7 @@ int startOperation(char **args)
         {
             printf("signal(SIGTSTP)_error");
         }
+        startJobsPID(jobs, pid, activeJobsSize);
         int count = 0;
         while(count<1)
         {
@@ -146,9 +177,8 @@ int startOperation(char **args)
                 printf("Continuing_%d\n", pid);
             }
         }
-        return FINISHED_INPUT;
     }
-
+    removeFromJobs(jobs, pid, pactiveJobsSize);
     return FINISHED_INPUT;
 }
 
@@ -163,12 +193,6 @@ int startPipedOperation(char **args1, char **args2)
         perror("pipe");
         return FINISHED_INPUT;
     }
-
-    //input args are coming in with an extra argument of "", this cleans that argument to NULL
-
-    int numArgs = countArgs(args2);
-    args2[numArgs-1] = NULL;
-
 
     pid_ch1 = fork();
     if(pid_ch1 > 0)

@@ -11,6 +11,13 @@ struct PipedArgs
     char **args1;
     char **args2;
 };
+struct Job
+{
+    char *line;
+    int pid_no;
+    int runningStatus; //boolean
+    int task_no;
+};
 char *readLineIn(void);
 char **parseLine(char *line);
 int countArgs(char **args);
@@ -18,14 +25,29 @@ int pipeQty(char **args);
 int pipeBGExclusive(char **args);
 struct PipedArgs getTwoArgs(char **args);
 void printStrArr(int arrLength, char *varName, char **arr);
+int yash_fg(char **args);
+int yash_bg(char **args);
+int yash_jobs(struct Job *jobs, int activeJobsSize);
+int processToBackground(char **args);
+int num_builtIns();
+int containsInRedir(char **args);
+int containsOutRedir(char **args);
+void addToJobs(struct Job *jobs, char *line, int *jobsNumber, int *activeJobsSize);
+void startJobsPID(struct Job *jobs, int pid, int activeJobsSize);
+void removeFromJobs(struct Job *jobs, int pid, int *activeJobsSize);
 
-#include "helpers.h"
+//#include "helpers.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #define MAX_INPUT_LENGTH 200
 #define DELIMS " \n"
+#define FINISHED_INPUT 1
+#define BUILT_IN_FG "fg"
+#define BUILT_IN_BG "bg"
+#define BUILT_IN_JOBS "jobs"
+#define MAX_NUMBER_JOBS 50
 
 //returns how many '|' are in the arguments
 int pipeQty(char **args)
@@ -160,4 +182,68 @@ void printStrArr(int arrLength, char *varName, char **arr)
     }
 }
 
+void addToJobs(struct Job *jobs, char *line, int *jobsNumber, int *activeJobsSize)
+{
+    jobs[*jobsNumber].line = strdup(line);
+    jobs[*jobsNumber].task_no = *jobsNumber+1;
+    (*jobsNumber)++;
+    (*activeJobsSize)++;
+    return;
+}
+
+int yash_jobs(struct Job *jobs, int activeJobsSize)
+{
+    for(int i=0; i<activeJobsSize; i++)
+    {
+        char *runningStr;
+        if(jobs[i].runningStatus)
+        {
+            runningStr = "Running";
+        } else runningStr = "Stopped";
+        if(i == activeJobsSize-1)
+        {
+            printf("[%d] + %s    %s\n", jobs[i].task_no, runningStr , jobs[i].line);
+        } else
+        {
+            printf("[%d] - %s    %s\n", jobs[i].task_no, runningStr, jobs[i].line);
+        }
+    }
+    return FINISHED_INPUT;
+}
+
+int yash_fg(char **args)
+{
+    return FINISHED_INPUT;
+}
+
+int yash_bg(char **args)
+{
+    return FINISHED_INPUT;
+}
+
+void startJobsPID(struct Job *jobs, int pid, int activeJobsSize)
+{
+    jobs[activeJobsSize-1].pid_no = pid;
+    jobs[activeJobsSize-1].runningStatus = 1;
+    return;
+}
+
+void removeFromJobs(struct Job *jobs, int pid, int *activeJobsSize)
+{
+    for(int i=0; i<*activeJobsSize; i++)
+    {
+        if(jobs[i].pid_no == pid)
+        {
+            for(int j=i; j<(*activeJobsSize-1); j++)
+            {
+                jobs[j].pid_no = jobs[j+1].pid_no;
+                jobs[j].runningStatus = jobs[j+1].runningStatus;
+                jobs[j].task_no = jobs[j+1].task_no;
+                jobs[j].line = strdup(jobs[j+1].line);
+            }
+        }
+    }
+    (*activeJobsSize)--;
+    return;
+}
 #endif //YASH_HELPERS_H
