@@ -15,13 +15,12 @@ int startOperation(char **args);
 static void sig_int(int signo);
 static void sig_tstp(int signo);
 static void sig_handler(int signo);
+int startBackgroundOperation(char **args);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
-int jobsNumber; //only goes up
 int activeJobsSize; //goes up and down as jobs finish
 struct Job *jobs;
-int *pjobsNumber = &jobsNumber;
 int *pactiveJobsSize = &activeJobsSize;
 
 //main to take arguments and start a loop
@@ -41,8 +40,7 @@ void mainLoop(void)
     int status;
     char *line;
     char **args;
-    jobsNumber = 0;
-
+    activeJobsSize = 0;
 
     //read input line
     //parse input
@@ -55,6 +53,12 @@ void mainLoop(void)
         signal(SIGTSTP, sig_handler);
         printf("# ");
         line = readLineIn();
+        if(line == NULL)
+        {
+            printf("\n");
+            killProcs(jobs, pactiveJobsSize);
+            break;
+        }
         if(strcmp(line,"") == 0) continue;
         args = parseLine(line);
         status = executeLine(args, line);
@@ -69,27 +73,22 @@ int executeLine(char **args, char *line)
     if(!*args) return FINISHED_INPUT;
     int returnVal;
 
-    //input args are coming in with an extra argument of "", this cleans that argument to NULL
-    int numArgs = countArgs(args);
-    args[numArgs-1] = NULL;
-
-//    if(!(
-//            (strcmp(args[0], BUILT_IN_BG) == 0) ||
-//            (strcmp(args[0], BUILT_IN_FG) == 0) ||
-//            (strcmp(args[0], BUILT_IN_JOBS) == 0)))
-//    {
-//        addToJobs(jobs, line, pjobsNumber, pactiveJobsSize);
-//    }
-
-    addToJobs(jobs, line, pjobsNumber, pactiveJobsSize);
+    if(!(
+            (strcmp(args[0], BUILT_IN_BG) == 0) ||
+            (strcmp(args[0], BUILT_IN_FG) == 0) ||
+            (strcmp(args[0], BUILT_IN_JOBS) == 0)))
+    {
+        addToJobs(jobs, line, pactiveJobsSize);
+    }
 
     if(strcmp(args[0], BUILT_IN_BG) == 0)
     {
-        return yash_bg(args);
+        return yash_bg(jobs, activeJobsSize);
     }
     if(strcmp(args[0], BUILT_IN_FG) == 0)
     {
-        return yash_fg(args);
+        yash_fg(jobs, activeJobsSize);
+        return FINISHED_INPUT;
     }
     if(strcmp(args[0], BUILT_IN_JOBS) == 0)
     {
@@ -105,6 +104,9 @@ int executeLine(char **args, char *line)
                        "('&' and '|' must be used separately).");
         return FINISHED_INPUT;
     }
+
+    //check if args contains '&'
+    if(containsAmp(args)) return startBackgroundOperation(args);
 
     //if there is a | in the argument then
     if(inputPiped == 1)
@@ -125,15 +127,41 @@ int executeLine(char **args, char *line)
     return returnVal;
 }
 
+int startBackgroundOperation(char **args)
+{
+    int status;
+    // remove '&' from arguments
+    int numArgs = countArgs(args);
+    args[numArgs-1] = NULL;
+
+    pid_ch1 = fork();
+    if(pid_ch1 == 0)
+    {
+        setpgid(0,0);
+        if (execvp(args[0], args) == -1)
+        {
+            perror("Problem executing command");
+            _Exit(EXIT_FAILURE);
+            return FINISHED_INPUT;
+        }
+    } else if(pid_ch1 < 0)
+    {
+        perror("error forking");
+    } else
+    {
+
+    }
+    return FINISHED_INPUT;
+}
 
 int startOperation(char **args)
 {
-//    pid_t pid_ch1, pid;
     int status;
 
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
+        setpgid(0,0);
         if(execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
@@ -153,11 +181,11 @@ int startOperation(char **args)
         {
             printf("signal(SIGTSTP)_error");
         }
-        startJobsPID(jobs, pid, activeJobsSize);
         int count = 0;
         while(count<1)
         {
             pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
+            startJobsPID(jobs, pid, activeJobsSize);
             if(pid == -1)
             {
                 perror("waitpid");
@@ -165,20 +193,32 @@ int startOperation(char **args)
             }
             if(WIFEXITED(status))
             {
+                removeFromJobs(jobs, pid, pactiveJobsSize);
                 count++;
             } else if(WIFSIGNALED(status))
             {
                 count++;
             } else if(WIFSTOPPED(status))
             {
+                setJobStatus(jobs, pid, activeJobsSize, STOPPED);
                 count++;
             } else if(WIFCONTINUED(status))
             {
+                count = 0;
+                setJobStatus(jobs, pid, activeJobsSize, RUNNING);
                 printf("Continuing_%d\n", pid);
+                if(signal(SIGINT, sig_int) == SIG_ERR)
+                {
+                    printf("signal(SIGINT)_error");
+                }
+                if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
+                {
+                    printf("signal(SIGTSTP)_error");
+                }
+                pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
             }
         }
     }
-    removeFromJobs(jobs, pid, pactiveJobsSize);
     return FINISHED_INPUT;
 }
 
@@ -217,6 +257,7 @@ int startPipedOperation(char **args1, char **args2)
             while(count<2)
             {
                 pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
+                startJobsPID(jobs, pid_ch1, activeJobsSize);
                 if(pid == -1)
                 {
                     perror("waitpid");
@@ -224,6 +265,7 @@ int startPipedOperation(char **args1, char **args2)
                 }
                 if(WIFEXITED(status))
                 {
+                    removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
                     count++;
                 } else if(WIFSIGNALED(status))
                 {
@@ -231,13 +273,14 @@ int startPipedOperation(char **args1, char **args2)
                     count++;
                 } else if(WIFSTOPPED(status))
                 {
-                    printf("child_%d_stopped_by_signal%d\n", pid, WSTOPSIG(status));
-                    printf("Sending_CONT_to_%d\n", pid);
-                    sleep(4);
-                    kill(pid, SIGCONT);
+                    setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
+                    count++;
                 } else if(WIFCONTINUED(status))
                 {
+                    count = 0;
+                    setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
                     printf("Continuing_%d\n", pid);
+                    pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
                 }
             }
             return FINISHED_INPUT;
@@ -274,14 +317,14 @@ int startPipedOperation(char **args1, char **args2)
 static void sig_int(int signo)
 {
     kill(-pid_ch1, SIGINT);
-    printf("\nsig_int caught");
+//    printf("\nsig_int caught\n");
 }
 
 
 static void sig_tstp(int signo)
 {
     kill(-pid_ch1, SIGTSTP);
-    printf("\nsig_tstp caught");
+//    printf("\nsig_tstp caught\n");
 }
 
 
@@ -292,7 +335,6 @@ static void sig_handler(int signo) {
             signal(SIGINT,sig_handler);
             break;
         case SIGTSTP:
-            printf("Caught sig_ign");
             signal(signo,SIG_IGN);
             signal(SIGTSTP,sig_handler);
             break;

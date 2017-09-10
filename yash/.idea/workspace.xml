@@ -11,9 +11,11 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91d994c8-9546-4d5b-b3e7-af46ab3558c3" name="Default" comment="single and piped commands running as expected">
+    <list default="true" id="91d994c8-9546-4d5b-b3e7-af46ab3558c3" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/a.out" afterPath="$PROJECT_DIR$/a.out" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cmake-build-debug/yash" afterPath="$PROJECT_DIR$/cmake-build-debug/yash" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/yash.dir/depend.make" afterPath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/yash.dir/depend.make" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/helpers.h" afterPath="$PROJECT_DIR$/helpers.h" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/main.c" afterPath="$PROJECT_DIR$/main.c" />
     </list>
@@ -30,8 +32,8 @@
       <file leaf-file-name="main.c" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/main.c">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="234">
-              <caret line="83" column="4" lean-forward="false" selection-start-line="83" selection-start-column="4" selection-end-line="83" selection-end-column="56" />
+            <state relative-caret-position="-254">
+              <caret line="163" column="21" lean-forward="false" selection-start-line="163" selection-start-column="21" selection-end-line="163" selection-end-column="21" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
               </folding>
@@ -42,10 +44,10 @@
       <file leaf-file-name="helpers.h" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/helpers.h">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="466">
-              <caret line="235" column="9" lean-forward="true" selection-start-line="235" selection-start-column="9" selection-end-line="235" selection-end-column="9" />
+            <state relative-caret-position="162">
+              <caret line="207" column="5" lean-forward="true" selection-start-line="207" selection-start-column="5" selection-end-line="207" selection-end-column="5" />
               <folding>
-                <element signature="e#983#1002#0" expanded="true" />
+                <element signature="e#1165#1184#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -68,8 +70,8 @@
         <option value="$PROJECT_DIR$/cmake-build-debug/helpers.h" />
         <option value="$PROJECT_DIR$/cmake-build-debug/helpers.c" />
         <option value="$PROJECT_DIR$/helpers.c" />
-        <option value="$PROJECT_DIR$/helpers.h" />
         <option value="$PROJECT_DIR$/main.c" />
+        <option value="$PROJECT_DIR$/helpers.h" />
       </list>
     </option>
   </component>
@@ -160,7 +162,9 @@
       <workItem from="1504984499915" duration="8421000" />
       <workItem from="1504995076777" duration="3000" />
       <workItem from="1504995103572" duration="6377000" />
-      <workItem from="1505007854054" duration="1613000" />
+      <workItem from="1505007854054" duration="1680000" />
+      <workItem from="1505053053824" duration="19062000" />
+      <workItem from="1505073195133" duration="1212000" />
     </task>
     <task id="LOCAL-00001" summary="single and piped commands running as expected">
       <created>1504929176029</created>
@@ -169,14 +173,21 @@
       <option name="project" value="LOCAL" />
       <updated>1504929176029</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="jobs working but not assigning and removing correctly">
+      <created>1505009515140</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1505009515140</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="74677000" />
+    <option name="totallyTimeSpent" value="95018000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="89" y="-6" width="1857" height="967" extended-state="6" />
+    <frame x="65" y="-4" width="893" height="941" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.10974244" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -208,13 +219,56 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="single and piped commands running as expected" />
-    <option name="LAST_COMMIT_MESSAGE" value="single and piped commands running as expected" />
+    <MESSAGE value="jobs working but not assigning and removing correctly" />
+    <option name="LAST_COMMIT_MESSAGE" value="jobs working but not assigning and removing correctly" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager />
+    <breakpoint-manager>
+      <option name="time" value="1" />
+    </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/main.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4986">
+          <caret line="277" column="17" lean-forward="true" selection-start-line="277" selection-start-column="17" selection-end-line="277" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#19#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/helpers.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4248">
+          <caret line="236" column="25" lean-forward="false" selection-start-line="236" selection-start-column="25" selection-end-line="236" selection-end-column="25" />
+          <folding>
+            <element signature="e#1165#1184#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/main.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1494">
+          <caret line="83" column="4" lean-forward="false" selection-start-line="83" selection-start-column="4" selection-end-line="83" selection-end-column="56" />
+          <folding>
+            <element signature="e#0#19#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/helpers.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4230">
+          <caret line="235" column="9" lean-forward="true" selection-start-line="235" selection-start-column="9" selection-end-line="235" selection-end-column="9" />
+          <folding>
+            <element signature="e#1165#1184#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/main.c">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -230,7 +284,7 @@
         <state relative-caret-position="3852">
           <caret line="214" column="1" lean-forward="true" selection-start-line="214" selection-start-column="1" selection-end-line="214" selection-end-column="1" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -250,7 +304,7 @@
         <state relative-caret-position="342">
           <caret line="19" column="2" lean-forward="false" selection-start-line="19" selection-start-column="2" selection-end-line="19" selection-end-column="2" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -270,7 +324,7 @@
         <state relative-caret-position="456">
           <caret line="19" column="2" lean-forward="true" selection-start-line="19" selection-start-column="2" selection-end-line="19" selection-end-column="2" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -290,7 +344,7 @@
         <state relative-caret-position="3000">
           <caret line="125" column="0" lean-forward="false" selection-start-line="125" selection-start-column="0" selection-end-line="125" selection-end-column="0" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -310,7 +364,7 @@
         <state relative-caret-position="2268">
           <caret line="126" column="8" lean-forward="true" selection-start-line="126" selection-start-column="8" selection-end-line="126" selection-end-column="8" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -330,7 +384,7 @@
         <state relative-caret-position="1200">
           <caret line="50" column="5" lean-forward="true" selection-start-line="50" selection-start-column="5" selection-end-line="50" selection-end-column="5" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -425,8 +479,8 @@
     <entry file="file://$PROJECT_DIR$/helpers.c" />
     <entry file="file://$PROJECT_DIR$/main.c">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="234">
-          <caret line="83" column="4" lean-forward="false" selection-start-line="83" selection-start-column="4" selection-end-line="83" selection-end-column="56" />
+        <state relative-caret-position="-254">
+          <caret line="163" column="21" lean-forward="false" selection-start-line="163" selection-start-column="21" selection-end-line="163" selection-end-column="21" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>
@@ -435,10 +489,10 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/helpers.h">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="466">
-          <caret line="235" column="9" lean-forward="true" selection-start-line="235" selection-start-column="9" selection-end-line="235" selection-end-column="9" />
+        <state relative-caret-position="162">
+          <caret line="207" column="5" lean-forward="true" selection-start-line="207" selection-start-column="5" selection-end-line="207" selection-end-column="5" />
           <folding>
-            <element signature="e#983#1002#0" expanded="true" />
+            <element signature="e#1165#1184#0" expanded="true" />
           </folding>
         </state>
       </provider>
