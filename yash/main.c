@@ -130,14 +130,16 @@ int executeLine(char **args, char *line)
 int startBackgroundOperation(char **args)
 {
     int status;
+    int pfd[2];
     // remove '&' from arguments
     int numArgs = countArgs(args);
     args[numArgs-1] = NULL;
 
+    printf("before fork%d\n",pid_ch1);
     pid_ch1 = fork();
+    printf("after fork%d\n",pid_ch1);
     if(pid_ch1 == 0)
     {
-        setpgid(0,0);
         if (execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
@@ -149,7 +151,13 @@ int startBackgroundOperation(char **args)
         perror("error forking");
     } else
     {
-
+        pid = waitpid(-1,&status,WNOHANG);
+        startJobsPID(jobs, pid, activeJobsSize);
+        if(WIFEXITED(status))
+        {
+            printf("#\n");
+            return FINISHED_INPUT;
+        }
     }
     return FINISHED_INPUT;
 }
@@ -161,7 +169,6 @@ int startOperation(char **args)
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
-        setpgid(0,0);
         if(execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
@@ -215,7 +222,6 @@ int startOperation(char **args)
                 {
                     printf("signal(SIGTSTP)_error");
                 }
-                pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
             }
         }
     }

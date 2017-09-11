@@ -231,8 +231,9 @@ void yash_fg(struct Job *jobs, int activeJobSize)
         printf("yash: No active jobs");
     }
     int pid = jobs[activeJobSize-1].pid_no;
-    tcsetpgrp(STDIN_FILENO,pid);
+//    tcsetpgrp(STDIN_FILENO,pid);
     kill(pid,SIGCONT);
+    kill(pid,SIGTTIN);
     return;
 }
 
@@ -299,4 +300,5 @@ int containsAmp(char **args)
     }
     return 0;
 }
+
 #endif //YASH_HELPERS_H
