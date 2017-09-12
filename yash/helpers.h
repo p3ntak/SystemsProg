@@ -37,6 +37,7 @@ void removeFromJobs(struct Job *jobs, int pid, int *activeJobsSize);
 void setJobStatus(struct Job *jobs, int pid, int activeJobsSize, int runningStatus);
 void killProcs(struct Job *jobs, int *activeJobsSize);
 int containsAmp(char **args);
+void shell_init(void);
 
 //#include "helpers.h"
 #include <stdlib.h>
@@ -52,6 +53,9 @@ int containsAmp(char **args);
 #define MAX_NUMBER_JOBS 50
 #define RUNNING 1
 #define STOPPED 0
+
+//global vars
+int shell_pid;
 
 //returns how many '|' are in the arguments
 int pipeQty(char **args)
@@ -233,7 +237,7 @@ void yash_fg(struct Job *jobs, int activeJobSize)
     int pid = jobs[activeJobSize-1].pid_no;
 //    tcsetpgrp(STDIN_FILENO,pid);
     kill(pid,SIGCONT);
-    kill(pid,SIGTTIN);
+//    kill(pid,SIGTTIN);
     return;
 }
 
@@ -299,6 +303,11 @@ int containsAmp(char **args)
         if(strstr(args[i],"&")) return 1;
     }
     return 0;
+}
+
+void init_shell(void)
+{
+    shell_pid = getpid();
 }
 
 #endif //YASH_HELPERS_H

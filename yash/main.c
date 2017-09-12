@@ -26,6 +26,7 @@ int *pactiveJobsSize = &activeJobsSize;
 //main to take arguments and start a loop
 int main(int argc, char **argv)
 {
+    init_shell();
     jobs = malloc(sizeof(struct Job) * MAX_NUMBER_JOBS);
 
     mainLoop();
@@ -137,7 +138,11 @@ int startBackgroundOperation(char **args)
 
     printf("before fork%d\n",pid_ch1);
     pid_ch1 = fork();
-    printf("after fork%d\n",pid_ch1);
+    pid = setsid();
+    printf("PID: %d\n", pid);
+    pipe(pfd);
+    close(pfd[0]);
+    dup2(pfd[1], STDOUT_FILENO);
     if(pid_ch1 == 0)
     {
         if (execvp(args[0], args) == -1)
@@ -153,11 +158,7 @@ int startBackgroundOperation(char **args)
     {
         pid = waitpid(-1,&status,WNOHANG);
         startJobsPID(jobs, pid, activeJobsSize);
-        if(WIFEXITED(status))
-        {
-            printf("#\n");
-            return FINISHED_INPUT;
-        }
+//        tcsetpgrp();
     }
     return FINISHED_INPUT;
 }
@@ -188,40 +189,31 @@ int startOperation(char **args)
         {
             printf("signal(SIGTSTP)_error");
         }
-        int count = 0;
-        while(count<1)
+        pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
+        startJobsPID(jobs, pid, activeJobsSize);
+        if(pid == -1)
         {
-            pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
-            startJobsPID(jobs, pid, activeJobsSize);
-            if(pid == -1)
+            perror("waitpid");
+        }
+        if(WIFEXITED(status))
+        {
+            removeFromJobs(jobs, pid, pactiveJobsSize);
+        } else if(WIFSIGNALED(status))
+        {
+        } else if(WIFSTOPPED(status))
+        {
+            setJobStatus(jobs, pid, activeJobsSize, STOPPED);
+        } else if(WIFCONTINUED(status))
+        {
+            setJobStatus(jobs, pid, activeJobsSize, RUNNING);
+            printf("Continuing_%d\n", pid);
+            if(signal(SIGINT, sig_int) == SIG_ERR)
             {
-                perror("waitpid");
-                break;
+                printf("signal(SIGINT)_error");
             }
-            if(WIFEXITED(status))
+            if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
             {
-                removeFromJobs(jobs, pid, pactiveJobsSize);
-                count++;
-            } else if(WIFSIGNALED(status))
-            {
-                count++;
-            } else if(WIFSTOPPED(status))
-            {
-                setJobStatus(jobs, pid, activeJobsSize, STOPPED);
-                count++;
-            } else if(WIFCONTINUED(status))
-            {
-                count = 0;
-                setJobStatus(jobs, pid, activeJobsSize, RUNNING);
-                printf("Continuing_%d\n", pid);
-                if(signal(SIGINT, sig_int) == SIG_ERR)
-                {
-                    printf("signal(SIGINT)_error");
-                }
-                if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
-                {
-                    printf("signal(SIGTSTP)_error");
-                }
+                printf("signal(SIGTSTP)_error");
             }
         }
     }
