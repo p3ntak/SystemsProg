@@ -24,7 +24,6 @@ int countArgs(char **args);
 int pipeQty(char **args);
 int pipeBGExclusive(char **args);
 struct PipedArgs getTwoArgs(char **args);
-void printStrArr(int arrLength, char *varName, char **arr);
 void yash_fg(struct Job *jobs, int activeJobSize);
 int yash_bg(struct Job *jobs, int activeJobSize);
 int yash_jobs(struct Job *jobs, int activeJobsSize);
@@ -37,7 +36,9 @@ void removeFromJobs(struct Job *jobs, int pid, int *activeJobsSize);
 void setJobStatus(struct Job *jobs, int pid, int activeJobsSize, int runningStatus);
 void killProcs(struct Job *jobs, int *activeJobsSize);
 int containsAmp(char **args);
-void shell_init(void);
+void init_shell(void);
+void removeLastFromJobs(struct Job *jobs, int *activeJobsSize);
+void removeAmp(char **args);
 
 //#include "helpers.h"
 #include <stdlib.h>
@@ -144,9 +145,6 @@ char **parseLine(char *line)
         }
         //TODO: multiple spaces in a row throws off args
         args[i] = arg;
-        //*********************only print input during testing*****************
-//        printf("%s\n",args[i]);
-        //*********************************************************************
         i++;
     } while(arg != NULL);
 
@@ -183,14 +181,6 @@ struct PipedArgs getTwoArgs(char **args)
     return pipedArgs;
 }
 
-void printStrArr(int arrLength, char *varName, char **arr)
-{
-    for(int i=0; i<arrLength; i++)
-    {
-        printf("%s[%d]: %s\n", varName, i, arr[i]);
-    }
-}
-
 void addToJobs(struct Job *jobs, char *line, int *activeJobsSize)
 {
     jobs[*activeJobsSize].line = strdup(line);
@@ -201,6 +191,8 @@ void addToJobs(struct Job *jobs, char *line, int *activeJobsSize)
     {
         jobs[*activeJobsSize].task_no = jobs[*activeJobsSize-1].task_no + 1;
     }
+    jobs[*activeJobsSize].runningStatus = STOPPED;
+    jobs[*activeJobsSize].pid_no = 0;
 
     (*activeJobsSize)++;
     return;
@@ -309,6 +301,27 @@ void init_shell(void)
 {
     shell_pid = getpid();
     printf("Shell_pid: %d\n", shell_pid);
+}
+
+void removeLastFromJobs(struct Job *jobs, int *activeJobsSize)
+{
+    jobs[*activeJobsSize-1].pid_no = 0;
+    jobs[*activeJobsSize-1].runningStatus = STOPPED;
+    jobs[*activeJobsSize-1].task_no = 0;
+    jobs[*activeJobsSize-1].line = NULL;
+
+    (*activeJobsSize)--;
+    return;
+}
+
+void removeAmp(char **args)
+{
+    int argCount = countArgs(args);
+    if(strcmp(args[argCount-1],"&") == 0)
+    {
+        args[argCount-1] = NULL;
+    }
+    return;
 }
 
 #endif //YASH_HELPERS_H

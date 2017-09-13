@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "helpers.h"
+#include <fcntl.h>
 #include <sys/types.h>
 
 
@@ -12,10 +13,10 @@ int executeLine(char **args, char *line);
 void mainLoop(void);
 int startPipedOperation(char **args1, char **args2);
 int startOperation(char **args);
+int startBgOperation(char **args);
 static void sig_int(int signo);
 static void sig_tstp(int signo);
 static void sig_handler(int signo);
-int startBackgroundOperation(char **args);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
@@ -106,9 +107,6 @@ int executeLine(char **args, char *line)
         return FINISHED_INPUT;
     }
 
-    //check if args contains '&'
-    if(containsAmp(args)) return startBackgroundOperation(args);
-
     //if there is a | in the argument then
     if(inputPiped == 1)
     {
@@ -116,49 +114,71 @@ int executeLine(char **args, char *line)
         returnVal = startPipedOperation(pipedArgs.args1, pipedArgs.args2);
         free(pipedArgs.args1);
         free(pipedArgs.args2);
+        free(args);
         return returnVal;
-    } else if (inputPiped > 1)
+    } else if (inputPiped > 1 || inputPiped < 0)
     {
         printf("Only one '|' allowed per line");
         return FINISHED_INPUT;
     }
 
-    returnVal = startOperation(args);
+    //check if args contains '&'
+    int inBackground = containsAmp(args);
+    if(inBackground) returnVal = startBgOperation(args);
+    else returnVal = startOperation(args);
     free(args);
     return returnVal;
 }
 
-int startBackgroundOperation(char **args)
+int startBgOperation(char **args)
 {
     int status;
-    int pfd[2];
-    // remove '&' from arguments
-    int numArgs = countArgs(args);
-    args[numArgs-1] = NULL;
+    removeAmp(args);
 
-    printf("before fork%d\n",pid_ch1);
     pid_ch1 = fork();
-    pid = setsid();
-    printf("PID: %d\n", pid);
-    pipe(pfd);
-    close(pfd[0]);
-    dup2(pfd[1], STDOUT_FILENO);
     if(pid_ch1 == 0)
     {
-        if (execvp(args[0], args) == -1)
+        // parent
+        int fd = open("/dev/null", O_WRONLY);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+        setsid();
+        pid_ch2 = fork();
+        if(pid_ch2 == 0)
         {
-            perror("Problem executing command");
-            _Exit(EXIT_FAILURE);
-            return FINISHED_INPUT;
+            //child
+            if(execvp(args[0], args) == -1)
+            {
+                perror("Problem executing command");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _Exit(EXIT_FAILURE);
+            }
+        } else if(pid_ch2 < 0)
+        {
+            perror("error forking");
+        } else if(pid_ch2 > 0)
+        {
+            startJobsPID(jobs, pid_ch1, activeJobsSize);
+            pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
+            if (pid == -1)
+            {
+                perror("waitpid");
+            }
+            if (WIFEXITED(status))
+            {
+                removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
+            } else if (WIFSIGNALED(status)) {
+            } else if (WIFSTOPPED(status))
+            {
+                setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
+            } else if (WIFCONTINUED(status))
+            {
+                setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
+            }
         }
     } else if(pid_ch1 < 0)
     {
         perror("error forking");
-    } else
-    {
-        pid = waitpid(-1,&status,WNOHANG);
-        startJobsPID(jobs, pid, activeJobsSize);
-//        tcsetpgrp();
     }
     return FINISHED_INPUT;
 }
@@ -167,54 +187,47 @@ int startOperation(char **args)
 {
     int status;
 
+    removeAmp(args);
+
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
         if(execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
+            removeLastFromJobs(jobs, pactiveJobsSize);
             _Exit(EXIT_FAILURE);
-            return FINISHED_INPUT;
         }
     } else if(pid_ch1 < 0)
     {
         perror("error forking");
     } else
     {
-        if(signal(SIGINT, sig_int) == SIG_ERR)
+        startJobsPID(jobs, pid_ch1, activeJobsSize);
+        // change sig catchers back to not ignore signals
+        if (signal(SIGINT, sig_int) == SIG_ERR)
         {
             printf("signal(SIGINT)_error");
         }
-        if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
+        if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
         {
             printf("signal(SIGTSTP)_error");
         }
-        pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
-        startJobsPID(jobs, pid, activeJobsSize);
-        if(pid == -1)
+        pid = waitpid(pid_ch1, &status, WUNTRACED | WCONTINUED);
+        if (pid == -1)
         {
             perror("waitpid");
         }
-        if(WIFEXITED(status))
+        if (WIFEXITED(status))
         {
-            removeFromJobs(jobs, pid, pactiveJobsSize);
-        } else if(WIFSIGNALED(status))
+            removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
+        } else if (WIFSIGNALED(status)) {
+        } else if (WIFSTOPPED(status))
         {
-        } else if(WIFSTOPPED(status))
+            setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
+        } else if (WIFCONTINUED(status))
         {
-            setJobStatus(jobs, pid, activeJobsSize, STOPPED);
-        } else if(WIFCONTINUED(status))
-        {
-            setJobStatus(jobs, pid, activeJobsSize, RUNNING);
-            printf("Continuing_%d\n", pid);
-            if(signal(SIGINT, sig_int) == SIG_ERR)
-            {
-                printf("signal(SIGINT)_error");
-            }
-            if(signal(SIGTSTP, sig_tstp) == SIG_ERR)
-            {
-                printf("signal(SIGTSTP)_error");
-            }
+            setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
         }
     }
     return FINISHED_INPUT;
@@ -315,14 +328,12 @@ int startPipedOperation(char **args1, char **args2)
 static void sig_int(int signo)
 {
     kill(-pid_ch1, SIGINT);
-//    printf("\nsig_int caught\n");
 }
 
 
 static void sig_tstp(int signo)
 {
     kill(-pid_ch1, SIGTSTP);
-//    printf("\nsig_tstp caught\n");
 }
 
 
