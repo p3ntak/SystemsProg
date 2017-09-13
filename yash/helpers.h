@@ -308,6 +308,7 @@ int containsAmp(char **args)
 void init_shell(void)
 {
     shell_pid = getpid();
+    printf("Shell_pid: %d\n", shell_pid);
 }
 
 #endif //YASH_HELPERS_H
