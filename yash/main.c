@@ -135,18 +135,27 @@ int startBgOperation(char **args)
     int status;
     removeAmp(args);
 
+    int pfd[2];
+
+    if (pipe(pfd) == -1)
+    {
+        perror("pipe");
+        return FINISHED_INPUT;
+    }
+
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
-        // parent
+        // child 1
         int fd = open("/dev/null", O_WRONLY);
+        close(pfd[0]);
         dup2(fd, STDOUT_FILENO);
         dup2(fd, STDERR_FILENO);
         setsid();
         pid_ch2 = fork();
         if(pid_ch2 == 0)
         {
-            //child
+            //child 2
             if(execvp(args[0], args) == -1)
             {
                 perror("Problem executing command");
@@ -179,6 +188,11 @@ int startBgOperation(char **args)
     } else if(pid_ch1 < 0)
     {
         perror("error forking");
+    } else if(pid_ch1 > 0)
+    {
+        // parent
+        waitpid(-1, &status, WNOHANG);
+        tcsetpgrp(STDIN_FILENO, shell_pid);
     }
     return FINISHED_INPUT;
 }
@@ -186,12 +200,41 @@ int startBgOperation(char **args)
 int startOperation(char **args)
 {
     int status;
-
     removeAmp(args);
+    FILE *fp = NULL;
+    int argCount = countArgs(args);
+    int redirIn = containsInRedir(args);
+    int redirOut = containsOutRedir(args);
+
+    for(int i=0; i<argCount; i++)
+        printf("%s\n",args[i]);
+
+    int pfd[2];
+
+    if (pipe(pfd) == -1)
+    {
+        perror("pipe");
+        return FINISHED_INPUT;
+    }
 
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
+        if(redirOut >= 0)
+        {
+            if(redirOut+1 < argCount)
+            {
+                fp = fopen (args[redirOut+1], "w+");
+                close(pfd[0]);
+                dup2(fileno(fp), STDOUT_FILENO);
+                removeRedirArgs(args, redirOut);
+            } else
+            {
+                fprintf(stderr, "Invalid Expression");
+                return FINISHED_INPUT;
+            }
+        }
+
         if(execvp(args[0], args) == -1)
         {
             perror("Problem executing command");
@@ -229,7 +272,9 @@ int startOperation(char **args)
         {
             setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
         }
+
     }
+    if(fp != NULL) fclose(fp);
     return FINISHED_INPUT;
 }
 
@@ -352,5 +397,3 @@ static void sig_handler(int signo) {
     }
 
 }
-
-//TODO: make sure ctrl + d kills processes before quitting

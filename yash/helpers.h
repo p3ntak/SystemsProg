@@ -27,7 +27,7 @@ struct PipedArgs getTwoArgs(char **args);
 void yash_fg(struct Job *jobs, int activeJobSize);
 int yash_bg(struct Job *jobs, int activeJobSize);
 int yash_jobs(struct Job *jobs, int activeJobsSize);
-int processToBackground(char **args);
+void processToBackground(char **args);
 int containsInRedir(char **args);
 int containsOutRedir(char **args);
 void addToJobs(struct Job *jobs, char *line, int *activeJobsSize);
@@ -39,6 +39,7 @@ int containsAmp(char **args);
 void init_shell(void);
 void removeLastFromJobs(struct Job *jobs, int *activeJobsSize);
 void removeAmp(char **args);
+void removeRedirArgs(char **args, int redirOut);
 
 //#include "helpers.h"
 #include <stdlib.h>
@@ -140,14 +141,14 @@ char **parseLine(char *line)
         arg = strsep(&lineCopy,delim);
         if(arg == NULL)
         {
-            //args[i] = arg;
             break;
         }
-        //TODO: multiple spaces in a row throws off args
         args[i] = arg;
         i++;
     } while(arg != NULL);
 
+    for(int i=0; i<countArgs(args); i++)
+        printf("%s\n",args[i]);
     args[countArgs(args)-1] = NULL;
     return args;
 }
@@ -321,6 +322,47 @@ void removeAmp(char **args)
     {
         args[argCount-1] = NULL;
     }
+    return;
+}
+
+int containsInRedir(char **args)
+{
+    int symbolPos = -1; // return -1 if '<' is not in args
+    int argCount = countArgs(args);
+
+    for(int i=0; i<argCount; i++)
+    {
+        if(strcmp(args[i],"<") == 0)
+            symbolPos = i;
+    }
+
+    return symbolPos;
+}
+
+int containsOutRedir(char **args)
+{
+    int symbolPos = -1; // return -1 if '<' is not in args
+    int argCount = countArgs(args);
+
+    for(int i=0; i<argCount; i++)
+    {
+        if(strcmp(args[i],">") == 0)
+            symbolPos = i;
+    }
+
+    return symbolPos;
+}
+
+void processToBackground(char **args)
+{
+
+    return;
+}
+
+void removeRedirArgs(char **args, int redirOut)
+{
+    args[redirOut] = NULL;
+    args[redirOut + 1] = NULL;
     return;
 }
 

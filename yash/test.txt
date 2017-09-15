@@ -1,2 +1,6 @@
-firefox
-firefox2
+a.out
+cmake-build-debug
+CMakeLists.txt
+helpers.h
+main.c
+test.txt
