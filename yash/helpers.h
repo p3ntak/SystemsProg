@@ -25,7 +25,7 @@ int pipeQty(char **args);
 int pipeBGExclusive(char **args);
 struct PipedArgs getTwoArgs(char **args);
 void yash_fg(struct Job *jobs, int activeJobSize);
-int yash_bg(struct Job *jobs, int activeJobSize);
+void yash_bg(struct Job *jobs, int activeJobSize);
 int yash_jobs(struct Job *jobs, int activeJobsSize);
 void processToBackground(char **args);
 int containsInRedir(char **args);
@@ -127,7 +127,7 @@ char *readLineIn(void)
 }
 
 //parse the input line into arguments and return array of args
-char **parseLine(char *line)
+/*char **parseLine(char *line)
 {
     char **args = malloc(MAX_INPUT_LENGTH * sizeof(char*));
     char *arg;
@@ -147,12 +147,44 @@ char **parseLine(char *line)
         i++;
     } while(arg != NULL);
 
-    for(int i=0; i<countArgs(args); i++)
-        printf("%s\n",args[i]);
     args[countArgs(args)-1] = NULL;
-    return args;
-}
 
+    return args;
+}*/
+
+// the following line parser was taken from https://brennan.io/2015/01/16/write-a-shell-in-c/
+#define LSH_TOK_BUFSIZE 64
+#define LSH_TOK_DELIM " \t\r\n\a"
+char **parseLine(char *line)
+{
+    int bufsize = LSH_TOK_BUFSIZE, position = 0;
+    char **tokens = malloc(bufsize * sizeof(char*));
+    char *token;
+
+    if (!tokens) {
+        fprintf(stderr, "lsh: allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    token = strtok(line, LSH_TOK_DELIM);
+    while (token != NULL) {
+        tokens[position] = token;
+        position++;
+
+        if (position >= bufsize) {
+            bufsize += LSH_TOK_BUFSIZE;
+            tokens = realloc(tokens, bufsize * sizeof(char*));
+            if (!tokens) {
+                fprintf(stderr, "lsh: allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        token = strtok(NULL, LSH_TOK_DELIM);
+    }
+    tokens[position] = NULL;
+    return tokens;
+}
 
 struct PipedArgs getTwoArgs(char **args)
 {
@@ -210,11 +242,11 @@ int yash_jobs(struct Job *jobs, int activeJobsSize)
         } else runningStr = "Stopped";
         if(i == activeJobsSize-1)
         {
-            printf("[%d] + %s    %s    %d\n", jobs[i].task_no, runningStr , jobs[i].line, jobs[i].pid_no);
+            printf("[%d] + %s    %s\n", jobs[i].task_no, runningStr , jobs[i].line);
 
         } else
         {
-            printf("[%d] - %s    %s    %d\n", jobs[i].task_no, runningStr, jobs[i].line, jobs[i].pid_no);
+            printf("[%d] - %s    %s\n", jobs[i].task_no, runningStr, jobs[i].line);
         }
     }
     if(activeJobsSize == 0) printf("No active jobs\n");
@@ -223,20 +255,22 @@ int yash_jobs(struct Job *jobs, int activeJobsSize)
 
 void yash_fg(struct Job *jobs, int activeJobSize)
 {
+    signal(SIGCONT, SIG_DFL);
     if(activeJobSize == 0)
     {
         printf("yash: No active jobs");
     }
-    int pid = jobs[activeJobSize-1].pid_no;
+    int pid = jobs[activeJobSize - 1].pid_no;
+//    tcsetpgrp(STDIN_FILENO, pid);
+    kill(pid, SIGCONT);
 //    tcsetpgrp(STDIN_FILENO,pid);
-    kill(pid,SIGCONT);
-//    kill(pid,SIGTTIN);
+//    kill(shell_pid,SIGTTIN);
     return;
 }
 
-int yash_bg(struct Job *jobs, int activeJobSize)
+void yash_bg(struct Job *jobs, int activeJobSize)
 {
-    return FINISHED_INPUT;
+    return;
 }
 
 void startJobsPID(struct Job *jobs, int pid, int activeJobsSize)
@@ -301,7 +335,6 @@ int containsAmp(char **args)
 void init_shell(void)
 {
     shell_pid = getpid();
-    printf("Shell_pid: %d\n", shell_pid);
 }
 
 void removeLastFromJobs(struct Job *jobs, int *activeJobsSize)
