@@ -27,6 +27,8 @@ string.h
 -
 helpers.h
 /home/matt/CLionProjects/SystemsProg/yash/helpers.h
+fcntl.h
+-
 sys/types.h
 -
 
