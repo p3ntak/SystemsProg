@@ -27,7 +27,6 @@ struct PipedArgs getTwoArgs(char **args);
 void yash_fg(struct Job *jobs, int activeJobSize);
 void yash_bg(struct Job *jobs, int activeJobSize);
 int yash_jobs(struct Job *jobs, int activeJobsSize);
-void processToBackground(char **args);
 int containsInRedir(char **args);
 int containsOutRedir(char **args);
 void addToJobs(struct Job *jobs, char *line, int *activeJobsSize);
@@ -40,6 +39,8 @@ void init_shell(void);
 void removeLastFromJobs(struct Job *jobs, int *activeJobsSize);
 void removeAmp(char **args);
 void removeRedirArgs(char **args, int redirOut);
+void fg_handler(int signo);
+void proc_exit(int signo);
 
 //#include "helpers.h"
 #include <stdlib.h>
@@ -126,32 +127,6 @@ char *readLineIn(void)
     return lineCopy;
 }
 
-//parse the input line into arguments and return array of args
-/*char **parseLine(char *line)
-{
-    char **args = malloc(MAX_INPUT_LENGTH * sizeof(char*));
-    char *arg;
-    int i = 0;
-    const char *delim = DELIMS;
-
-    char *lineCopy;
-    lineCopy = strdup(line);
-
-    do {
-        arg = strsep(&lineCopy,delim);
-        if(arg == NULL)
-        {
-            break;
-        }
-        args[i] = arg;
-        i++;
-    } while(arg != NULL);
-
-    args[countArgs(args)-1] = NULL;
-
-    return args;
-}*/
-
 // the following line parser was taken from https://brennan.io/2015/01/16/write-a-shell-in-c/
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
@@ -196,7 +171,6 @@ struct PipedArgs getTwoArgs(char **args)
     while(!strstr(args[i],"|"))
     {
         args1[k] = args[i];
-        printf("%s\n",args1[i]);
         i++;
         k++;
     };
@@ -255,21 +229,75 @@ int yash_jobs(struct Job *jobs, int activeJobsSize)
 
 void yash_fg(struct Job *jobs, int activeJobSize)
 {
+    int status;
     signal(SIGCONT, SIG_DFL);
     if(activeJobSize == 0)
     {
         printf("yash: No active jobs");
     }
     int pid = jobs[activeJobSize - 1].pid_no;
-//    tcsetpgrp(STDIN_FILENO, pid);
+    setJobStatus(jobs, pid, activeJobSize, RUNNING);
+    for(int i=0; i<activeJobSize; i++)
+    {
+        char *runningStr;
+        if(jobs[i].runningStatus)
+        {
+            runningStr = "Running";
+        } else runningStr = "Stopped";
+        if(i == activeJobSize-1)
+        {
+            if(jobs[i].pid_no == pid)
+            printf("[%d] + %s    %s\n", jobs[i].task_no, runningStr , jobs[i].line);
+
+        } else
+        {
+            if(jobs[i].pid_no == pid)
+            printf("[%d] - %s    %s\n", jobs[i].task_no, runningStr, jobs[i].line);
+        }
+    }
+    signal(SIGCHLD, fg_handler);
     kill(pid, SIGCONT);
-//    tcsetpgrp(STDIN_FILENO,pid);
-//    kill(shell_pid,SIGTTIN);
+    waitpid(pid, &status, WCONTINUED | WUNTRACED);
     return;
 }
 
 void yash_bg(struct Job *jobs, int activeJobSize)
 {
+    int pid=0;
+    signal(SIGCONT, SIG_DFL);
+    if(activeJobSize == 0)
+    {
+        printf("yash: No active jobs");
+    }
+    for(int i=activeJobSize-1; i>=0; i--)
+    {
+        if(jobs[i].runningStatus == STOPPED)
+        {
+            pid = jobs[i].pid_no;
+            break;
+        }
+    }
+    setJobStatus(jobs, pid, activeJobSize, RUNNING);
+    for(int i=0; i<activeJobSize; i++)
+    {
+        char *runningStr;
+        if(jobs[i].runningStatus)
+        {
+            runningStr = "Running";
+        } else runningStr = "Stopped";
+        if(i == activeJobSize-1)
+        {
+            if(jobs[i].pid_no == pid)
+                printf("[%d] + %s    %s\n", jobs[i].task_no, runningStr , jobs[i].line);
+
+        } else
+        {
+            if(jobs[i].pid_no == pid)
+                printf("[%d] - %s    %s\n", jobs[i].task_no, runningStr, jobs[i].line);
+        }
+    }
+    signal(SIGCHLD, proc_exit);
+    kill(pid, SIGCONT);
     return;
 }
 
@@ -297,9 +325,9 @@ void removeFromJobs(struct Job *jobs, int pid, int *activeJobsSize)
             jobs[*activeJobsSize-1].runningStatus = STOPPED;
             jobs[*activeJobsSize-1].task_no = 0;
             jobs[*activeJobsSize-1].line = NULL;
+            (*activeJobsSize)--;
         }
     }
-    (*activeJobsSize)--;
     return;
 }
 
@@ -384,12 +412,6 @@ int containsOutRedir(char **args)
     }
 
     return symbolPos;
-}
-
-void processToBackground(char **args)
-{
-
-    return;
 }
 
 void removeRedirArgs(char **args, int redirOut)

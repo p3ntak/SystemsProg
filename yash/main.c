@@ -17,7 +17,6 @@ int startBgOperation(char **args);
 static void sig_int(int signo);
 static void sig_tstp(int signo);
 static void sig_handler(int signo);
-void proc_exit(int signo);
 
 // Global Vars
 int pid_ch1, pid_ch2, pid;
@@ -51,7 +50,7 @@ void mainLoop(void)
     //while waiting for user input SIGINT is ignored so ctrl+c will not stop the shell
     do
     {
-        // ignore sigint and sigtstp while no processes
+        // ignore sigint and sigtstp while waiting for input
         signal(SIGINT, sig_handler);
         signal(SIGTSTP, sig_handler);
         printf("# ");
@@ -63,8 +62,9 @@ void mainLoop(void)
             break;
         }
         if(strcmp(line,"") == 0) continue;
+        char *lineCpy = strdup(line);
         args = parseLine(line);
-        status = executeLine(args, line);
+        status = executeLine(args, lineCpy);
         printf("\n");
     } while(status);
     return;
@@ -139,117 +139,107 @@ int executeLine(char **args, char *line)
 
 int startBgOperation(char **args)
 {
-    int status;
     removeAmp(args);
     FILE *writeFilePointer = NULL;
     FILE *readFilePointer = NULL;
     int argCount = countArgs(args);
     int redirIn = containsInRedir(args);
     int redirOut = containsOutRedir(args);
-
-    int pfd[2];
-
-    if (pipe(pfd) == -1)
-    {
-        perror("pipe");
-        return FINISHED_INPUT;
-    }
+    int fd = open("/dev/null", O_WRONLY);
 
     pid_ch1 = fork();
-    if(pid_ch1 == 0)
+    if (pid_ch1 == 0)
     {
-        // child 1
         setsid();
-        pid_ch2 = fork();
-        if(pid_ch2 == 0)
+        dup2(fd, STDERR_FILENO);
+        if (redirOut >= 0)
         {
-            // child 2
-            if(redirOut >= 0)
+            if (redirOut + 1 < argCount)
             {
-                if(redirOut+1 < argCount)
+                writeFilePointer = fopen(args[redirOut + 1], "w+");
+                if (writeFilePointer)
                 {
-                    writeFilePointer = fopen(args[redirOut + 1], "w+");
-                    if (writeFilePointer)
-                    {
-                        close(pfd[0]);
-                        dup2(fileno(writeFilePointer), STDOUT_FILENO);
-                        removeRedirArgs(args, redirOut);
-                    } else
-                    {
-                        fprintf(stderr, "Cannot open file %s\n",args[redirOut + 1]);
-                        return FINISHED_INPUT;
-                    }
+                    dup2(fileno(writeFilePointer), STDOUT_FILENO);
+                    removeRedirArgs(args, redirOut);
                 } else
                 {
-                    fprintf(stderr, "Invalid Expression");
+                    fprintf(stderr, "Cannot open file %s\n", args[redirOut + 1]);
                     return FINISHED_INPUT;
                 }
+            } else
+            {
+                fprintf(stderr, "Invalid Expression");
+                return FINISHED_INPUT;
             }
+        }
 
-            if(redirIn >= 0)
+        if (redirIn >= 0)
+        {
+            if (redirIn + 1 < argCount)
             {
-                if(redirIn+1 < argCount)
+                readFilePointer = fopen(args[redirIn + 1], "r");
+                if (readFilePointer)
                 {
-                    readFilePointer = fopen(args[redirIn+1], "r");
-                    if(readFilePointer)
-                    {
-                        close(pfd[1]);
-                        dup2(fileno(readFilePointer), STDIN_FILENO);
-                        removeRedirArgs(args, redirIn);
-                    } else
-                    {
-                        fprintf(stderr, "Cannot open file %s\n",args[redirIn + 1]);
-                        return FINISHED_INPUT;
-                    }
+                    dup2(fileno(readFilePointer), STDIN_FILENO);
+                    removeRedirArgs(args, redirIn);
                 } else
                 {
-                    fprintf(stderr, "Invalid Expression");
+                    fprintf(stderr, "Cannot open file %s\n", args[redirIn + 1]);
                     return FINISHED_INPUT;
                 }
+            } else
+            {
+                fprintf(stderr, "Invalid Expression");
+                return FINISHED_INPUT;
             }
-            //child 2
+        }
+
+        if(redirIn > 0 && redirOut > 0)
+        {
             if(execvp(args[0], args) == -1)
             {
                 perror("Problem executing command");
                 removeLastFromJobs(jobs, pactiveJobsSize);
                 _Exit(EXIT_FAILURE);
             }
-        } else if(pid_ch2 < 0)
+        } else if(redirIn < 0 && redirOut <0)
         {
-            perror("error forking");
-        } else if(pid_ch2 > 0)
-        {
-            int fd = open("/dev/null", O_WRONLY);
-            close(pfd[0]);
             dup2(fd, STDOUT_FILENO);
-            dup2(fd, STDERR_FILENO);
-            startJobsPID(jobs, pid_ch1, activeJobsSize);
-            pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
-            if (pid == -1)
+            if(execvp(args[0], args) == -1)
             {
-                perror("waitpid");
+                perror("Problem executing command");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _Exit(EXIT_FAILURE);
             }
-            if (WIFEXITED(status))
+        } else if(redirIn >= 0 && redirOut <0)
+        {
+            dup2(fd, STDOUT_FILENO);
+            if(execvp(args[0], args) == -1)
             {
-                removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
-            } else if (WIFSIGNALED(status)) {
-            } else if (WIFSTOPPED(status))
+                perror("Problem executing command");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _Exit(EXIT_FAILURE);
+            }
+        } else if(redirIn < 0 && redirOut >= 0)
+        {
+            if(execvp(args[0], args) == -1)
             {
-                setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
-            } else if (WIFCONTINUED(status))
-            {
-                setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
+                perror("Problem executing command");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _Exit(EXIT_FAILURE);
             }
         }
-    } else if(pid_ch1 < 0)
+
+    } else if (pid_ch1 < 0)
     {
         perror("error forking");
-    } else if(pid_ch1 > 0)
+    } else if (pid_ch1 > 0)
     {
-        // parent
-        waitpid(-1, &status, WNOHANG);
-        tcsetpgrp(STDIN_FILENO, shell_pid);
+        signal(SIGCHLD, proc_exit);
+        startJobsPID(jobs, pid_ch1, activeJobsSize);
     }
+    if(writeFilePointer != NULL) fclose(writeFilePointer);
+    if(readFilePointer != NULL) fclose(readFilePointer);
     return FINISHED_INPUT;
 }
 
@@ -263,16 +253,6 @@ int startOperation(char **args)
     int redirIn = containsInRedir(args);
     int redirOut = containsOutRedir(args);
 
-    int pfd[2];
-
-    if (pipe(pfd) == -1)
-    {
-        perror("pipe");
-        return FINISHED_INPUT;
-    }
-
-    signal(SIGCHLD, proc_exit);
-
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
@@ -283,7 +263,6 @@ int startOperation(char **args)
                 writeFilePointer = fopen(args[redirOut + 1], "w+");
                 if (writeFilePointer)
                 {
-                    close(pfd[0]);
                     dup2(fileno(writeFilePointer), STDOUT_FILENO);
                     removeRedirArgs(args, redirOut);
                 } else
@@ -305,7 +284,6 @@ int startOperation(char **args)
                 readFilePointer = fopen(args[redirIn+1], "r");
                 if(readFilePointer)
                 {
-                    close(pfd[1]);
                     dup2(fileno(readFilePointer), STDIN_FILENO);
                     removeRedirArgs(args, redirIn);
                 } else
@@ -342,23 +320,21 @@ int startOperation(char **args)
         {
             printf("signal(SIGTSTP)_error");
         }
-        pid = waitpid(pid_ch1, &status, WUNTRACED | WCONTINUED);
-        if (pid == -1)
+        int count = 0;
+        while(count<1)
         {
-            perror("waitpid");
+            pid = waitpid(pid_ch1, &status, WUNTRACED | WCONTINUED);
+            if (pid == -1) {
+                perror("waitpid");
+            }
+            if (WIFEXITED(status)) {
+                removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
+                count++;
+            } else if (WIFSTOPPED(status)) {
+                setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
+                count++;
+            }
         }
-        if (WIFEXITED(status))
-        {
-            removeFromJobs(jobs, pid_ch1, pactiveJobsSize);
-        } else if (WIFSIGNALED(status)) {
-        } else if (WIFSTOPPED(status))
-        {
-            setJobStatus(jobs, pid_ch1, activeJobsSize, STOPPED);
-        } else if (WIFCONTINUED(status))
-        {
-            setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
-        }
-
     }
     if(writeFilePointer != NULL) fclose(writeFilePointer);
     if(readFilePointer != NULL) fclose(readFilePointer);
@@ -370,6 +346,14 @@ int startPipedOperation(char **args1, char **args2)
 {
     int status;
     int pfd[2];
+    FILE *writeFilePointer = NULL;
+    FILE *readFilePointer = NULL;
+    int argCount1 = countArgs(args1);
+    int argCount2 = countArgs(args2);
+    int redirIn1 = containsInRedir(args1);
+    int redirIn2 = containsInRedir(args2);
+    int redirOut1 = containsOutRedir(args1);
+    int redirOut2 = containsOutRedir(args2);
 
     if (pipe(pfd) == -1)
     {
@@ -380,12 +364,10 @@ int startPipedOperation(char **args1, char **args2)
     pid_ch1 = fork();
     if(pid_ch1 > 0)
     {
-        printf("Child1_pid_=_%d\n",pid_ch1);
         //parent
         pid_ch2 = fork();
         if(pid_ch2 > 0)
         {
-            printf("Child2_pid_=_%d\n",pid_ch2);
             if(signal(SIGINT, sig_int) == SIG_ERR)
             {
                 printf("signal(SIGINT)_error");
@@ -412,7 +394,6 @@ int startPipedOperation(char **args1, char **args2)
                     count++;
                 } else if(WIFSIGNALED(status))
                 {
-                    printf("child_%d_killed_by_signal%d\n", pid, WTERMSIG(status));
                     count++;
                 } else if(WIFSTOPPED(status))
                 {
@@ -420,9 +401,7 @@ int startPipedOperation(char **args1, char **args2)
                     count++;
                 } else if(WIFCONTINUED(status))
                 {
-                    count = 0;
                     setJobStatus(jobs, pid_ch1, activeJobsSize, RUNNING);
-                    printf("Continuing_%d\n", pid);
                     pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
                 }
             }
@@ -434,9 +413,52 @@ int startPipedOperation(char **args1, char **args2)
             setpgid(0, pid_ch1);
             close(pfd[1]);
             dup2(pfd[0],STDIN_FILENO);
+
+            if(redirOut2 >= 0)
+            {
+                if(redirOut2+1 < argCount2)
+                {
+                    writeFilePointer = fopen(args2[redirOut2 + 1], "w+");
+                    if (writeFilePointer)
+                    {
+                        dup2(fileno(writeFilePointer), STDOUT_FILENO);
+                        removeRedirArgs(args2, redirOut2);
+                    } else
+                    {
+                        fprintf(stderr, "Cannot open file %s\n",args2[redirOut2 + 1]);
+                        return FINISHED_INPUT;
+                    }
+                } else
+                {
+                    fprintf(stderr, "Invalid Expression");
+                    return FINISHED_INPUT;
+                }
+            }
+
+            if(redirIn2 >= 0)
+            {
+                if(redirIn2+1 < argCount2)
+                {
+                    readFilePointer = fopen(args2[redirIn2+1], "r");
+                    if(readFilePointer)
+                    {
+                        dup2(fileno(readFilePointer), STDIN_FILENO);
+                        removeRedirArgs(args2, redirIn2);
+                    } else
+                    {
+                        fprintf(stderr, "Cannot open file %s\n",args2[redirIn2 + 1]);
+                        return FINISHED_INPUT;
+                    }
+                } else
+                {
+                    fprintf(stderr, "Invalid Expression");
+                    return FINISHED_INPUT;
+                }
+            }
             if(execvp(args2[0], args2) == -1)
             {
                 perror("Problem executing command 2");
+                removeLastFromJobs(jobs, pactiveJobsSize);
                 _Exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
@@ -446,13 +468,58 @@ int startPipedOperation(char **args1, char **args2)
         setsid();
         close(pfd[0]);
         dup2(pfd[1], STDOUT_FILENO);
+
+        if(redirOut1 >= 0)
+        {
+            if(redirOut1+1 < argCount1)
+            {
+                writeFilePointer = fopen(args1[redirOut1 + 1], "w+");
+                if (writeFilePointer)
+                {
+                    dup2(fileno(writeFilePointer), STDOUT_FILENO);
+                    removeRedirArgs(args1, redirOut1);
+                } else
+                {
+                    fprintf(stderr, "Cannot open file %s\n",args1[redirOut1 + 1]);
+                    return FINISHED_INPUT;
+                }
+            } else
+            {
+                fprintf(stderr, "Invalid Expression");
+                return FINISHED_INPUT;
+            }
+        }
+
+        if(redirIn1 >= 0)
+        {
+            if(redirIn1+1 < argCount1)
+            {
+                readFilePointer = fopen(args1[redirIn1+1], "r");
+                if(readFilePointer)
+                {
+                    dup2(fileno(readFilePointer), STDIN_FILENO);
+                    removeRedirArgs(args1, redirIn1);
+                } else
+                {
+                    fprintf(stderr, "Cannot open file %s\n",args1[redirIn1 + 1]);
+                    return FINISHED_INPUT;
+                }
+            } else
+            {
+                fprintf(stderr, "Invalid Expression");
+                return FINISHED_INPUT;
+            }
+        }
         if(execvp(args1[0], args1) == -1)
         {
             perror("Problem executing command 1");
+            removeLastFromJobs(jobs, pactiveJobsSize);
             _Exit(EXIT_FAILURE);
             return FINISHED_INPUT;
         }
     }
+    if(writeFilePointer != NULL) fclose(writeFilePointer);
+    if(readFilePointer != NULL) fclose(readFilePointer);
     return FINISHED_INPUT;
 }
 
@@ -470,23 +537,25 @@ static void sig_tstp(int signo)
 
 void proc_exit(int signo)
 {
-    int status;
+    pid_t	sig_chld_pid;
+    sig_chld_pid = wait(NULL);
+    for(int i=0; i<activeJobsSize; i++)
+    {
+        if(jobs[i].pid_no == sig_chld_pid)
+            printf("\n[%d] DONE    %s\n", jobs[i].task_no, jobs[i].line);
+    }
+    removeFromJobs(jobs, sig_chld_pid, pactiveJobsSize);
+    signal(SIGCHLD,SIG_DFL);
+    return;
+}
+
+void fg_handler(int signo)
+{
     pid_t	sig_chld_pid;
 
-    while (1) {
-        sig_chld_pid = waitpid (-1, &status, WNOHANG);
-        if (sig_chld_pid == 0)
-            return;
-        else if (sig_chld_pid == -1)
-            return;
-        else
-        {
-            removeFromJobs(jobs, sig_chld_pid, pactiveJobsSize);
-            printf ("SIGCHLD CAUGHT Return code: %d\n", sig_chld_pid);
-            return;
-        }
-
-    }
+    sig_chld_pid = wait(NULL);
+    removeFromJobs(jobs, sig_chld_pid, pactiveJobsSize);
+    signal(SIGCHLD,SIG_DFL);
 }
 
 static void sig_handler(int signo) {
