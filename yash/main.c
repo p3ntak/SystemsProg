@@ -5,8 +5,6 @@
 #include <string.h>
 #include "helpers.h"
 #include <fcntl.h>
-#include <sys/types.h>
-
 
 //function declarations
 int executeLine(char **args, char *line);
