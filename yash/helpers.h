@@ -258,7 +258,7 @@ void yash_fg(struct Job *jobs, int activeJobSize)
     }
     signal(SIGCHLD, fg_handler);
     kill(pid, SIGCONT);
-    waitpid(pid, &status, WCONTINUED | WUNTRACED);
+    wait(NULL);
     return;
 }
 

@@ -428,6 +428,8 @@ void proc_exit(int signo)
         if(jobs[i].pid_no == sig_chld_pid)
             printf("\n[%d] DONE    %s\n", jobs[i].task_no, jobs[i].line);
     }
+    printf("# ");
+    fflush(stdout);
     removeFromJobs(jobs, sig_chld_pid, pactiveJobsSize);
     signal(SIGCHLD,SIG_DFL);
     return;
