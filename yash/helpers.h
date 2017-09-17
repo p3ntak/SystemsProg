@@ -275,6 +275,7 @@ void yash_bg(struct Job *jobs, int activeJobSize)
     }
     for(int i=activeJobSize-1; i>=0; i--)
     {
+        if(pipeQty(parseLine(jobs[i].line)) != 0) continue;
         if(jobs[i].runningStatus == STOPPED)
         {
             pid = jobs[i].pid_no;
