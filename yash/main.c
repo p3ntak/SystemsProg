@@ -25,7 +25,6 @@ int *pactiveJobsSize = &activeJobsSize;
 //main to take arguments and start a loop
 int main(int argc, char **argv)
 {
-    init_shell();
     jobs = malloc(sizeof(struct Job) * MAX_NUMBER_JOBS);
 
     mainLoop();
@@ -73,6 +72,8 @@ int executeLine(char **args, char *line)
 {
     if(!*args) return FINISHED_INPUT;
     int returnVal;
+    int inBackground = containsAmp(args);   //check if args contains '&'
+    int inputPiped = pipeQty(args);         //get number of pipes in the command
 
     if(!(
             (strcmp(args[0], BUILT_IN_BG) == 0) ||
@@ -82,6 +83,7 @@ int executeLine(char **args, char *line)
         addToJobs(jobs, line, pactiveJobsSize);
     }
 
+    // check if command is a built in command
     if(strcmp(args[0], BUILT_IN_BG) == 0)
     {
         yash_bg(jobs, activeJobsSize);
@@ -93,17 +95,20 @@ int executeLine(char **args, char *line)
         return FINISHED_INPUT;
     }
     if(strcmp(args[0], BUILT_IN_JOBS) == 0)
-    {
         return yash_jobs(jobs, activeJobsSize);
-    }
-
-    int inputPiped = pipeQty(args);
 
     //make sure & and | are not both in the argument
     if(!pipeBGExclusive(args))
     {
         printf("Cannot background and pipeline commands "
                        "('&' and '|' must be used separately).");
+        return FINISHED_INPUT;
+    }
+
+    // if there are more than 1 or less than 0 pipes reject the input as it is not a valid command
+    if (inputPiped > 1 || inputPiped < 0)
+    {
+        printf("Only one '|' allowed per line");
         return FINISHED_INPUT;
     }
 
@@ -116,14 +121,8 @@ int executeLine(char **args, char *line)
         free(pipedArgs.args2);
         free(args);
         return returnVal;
-    } else if (inputPiped > 1 || inputPiped < 0)
-    {
-        printf("Only one '|' allowed per line");
-        return FINISHED_INPUT;
     }
 
-    //check if args contains '&'
-    int inBackground = containsAmp(args);
     if(inBackground)
     {
         returnVal = startBgOperation(args);
@@ -149,83 +148,33 @@ int startBgOperation(char **args)
     if (pid_ch1 == 0)
     {
         setsid();
-        dup2(fd, STDERR_FILENO);
         if (redirOut >= 0)
         {
-            if (redirOut + 1 < argCount)
+            if(setRedirOut(args, redirOut, writeFilePointer, argCount) == -1)
             {
-                writeFilePointer = fopen(args[redirOut + 1], "w+");
-                if (writeFilePointer)
-                {
-                    dup2(fileno(writeFilePointer), STDOUT_FILENO);
-                    removeRedirArgs(args, redirOut);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n", args[redirOut + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
 
         if (redirIn >= 0)
         {
-            if (redirIn + 1 < argCount)
+            if(setRedirIn(args, redirIn, readFilePointer, argCount) == -1)
             {
-                readFilePointer = fopen(args[redirIn + 1], "r");
-                if (readFilePointer)
-                {
-                    dup2(fileno(readFilePointer), STDIN_FILENO);
-                    removeRedirArgs(args, redirIn);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n", args[redirIn + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
 
-        if(redirIn > 0 && redirOut > 0)
-        {
-            if(execvp(args[0], args) == -1)
-            {
-                perror("Problem executing command");
-                removeLastFromJobs(jobs, pactiveJobsSize);
-                _Exit(EXIT_FAILURE);
-            }
-        } else if(redirIn < 0 && redirOut <0)
-        {
+        if((redirIn < 0 && redirOut <0) || (redirIn >= 0 && redirOut <0))
             dup2(fd, STDOUT_FILENO);
-            if(execvp(args[0], args) == -1)
-            {
-                perror("Problem executing command");
-                removeLastFromJobs(jobs, pactiveJobsSize);
-                _Exit(EXIT_FAILURE);
-            }
-        } else if(redirIn >= 0 && redirOut <0)
+        if(execvp(args[0], args) == -1)
         {
-            dup2(fd, STDOUT_FILENO);
-            if(execvp(args[0], args) == -1)
-            {
-                perror("Problem executing command");
-                removeLastFromJobs(jobs, pactiveJobsSize);
-                _Exit(EXIT_FAILURE);
-            }
-        } else if(redirIn < 0 && redirOut >= 0)
-        {
-            if(execvp(args[0], args) == -1)
-            {
-                perror("Problem executing command");
-                removeLastFromJobs(jobs, pactiveJobsSize);
-                _Exit(EXIT_FAILURE);
-            }
+            perror("Problem executing command");
+            removeLastFromJobs(jobs, pactiveJobsSize);
+            _Exit(EXIT_FAILURE);
         }
 
     } else if (pid_ch1 < 0)
@@ -254,44 +203,22 @@ int startOperation(char **args)
     pid_ch1 = fork();
     if(pid_ch1 == 0)
     {
-        if(redirOut >= 0)
+        // child process
+        if (redirOut >= 0)
         {
-            if(redirOut+1 < argCount)
+            if(setRedirOut(args, redirOut, writeFilePointer, argCount) == -1)
             {
-                writeFilePointer = fopen(args[redirOut + 1], "w+");
-                if (writeFilePointer)
-                {
-                    dup2(fileno(writeFilePointer), STDOUT_FILENO);
-                    removeRedirArgs(args, redirOut);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n",args[redirOut + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
 
-        if(redirIn >= 0)
-        {
-            if(redirIn+1 < argCount)
+        if (redirIn >= 0) {
+            if (setRedirIn(args, redirIn, readFilePointer, argCount) == -1)
             {
-                readFilePointer = fopen(args[redirIn+1], "r");
-                if(readFilePointer)
-                {
-                    dup2(fileno(readFilePointer), STDIN_FILENO);
-                    removeRedirArgs(args, redirIn);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n",args[redirIn + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
@@ -412,47 +339,26 @@ int startPipedOperation(char **args1, char **args2)
             close(pfd[1]);
             dup2(pfd[0],STDIN_FILENO);
 
-            if(redirOut2 >= 0)
+            if (redirOut2 >= 0)
             {
-                if(redirOut2+1 < argCount2)
+                if(setRedirOut(args2, redirOut2, writeFilePointer, argCount2) == -1)
                 {
-                    writeFilePointer = fopen(args2[redirOut2 + 1], "w+");
-                    if (writeFilePointer)
-                    {
-                        dup2(fileno(writeFilePointer), STDOUT_FILENO);
-                        removeRedirArgs(args2, redirOut2);
-                    } else
-                    {
-                        fprintf(stderr, "Cannot open file %s\n",args2[redirOut2 + 1]);
-                        return FINISHED_INPUT;
-                    }
-                } else
-                {
-                    fprintf(stderr, "Invalid Expression");
+                    removeLastFromJobs(jobs, pactiveJobsSize);
+                    _exit(EXIT_FAILURE);
                     return FINISHED_INPUT;
                 }
             }
 
-            if(redirIn2 >= 0)
+            if (redirIn2 >= 0)
             {
-                if(redirIn2+1 < argCount2)
+                if(setRedirIn(args2, redirIn2, readFilePointer, argCount2) == -1)
                 {
-                    readFilePointer = fopen(args2[redirIn2+1], "r");
-                    if(readFilePointer)
-                    {
-                        dup2(fileno(readFilePointer), STDIN_FILENO);
-                        removeRedirArgs(args2, redirIn2);
-                    } else
-                    {
-                        fprintf(stderr, "Cannot open file %s\n",args2[redirIn2 + 1]);
-                        return FINISHED_INPUT;
-                    }
-                } else
-                {
-                    fprintf(stderr, "Invalid Expression");
+                    removeLastFromJobs(jobs, pactiveJobsSize);
+                    _exit(EXIT_FAILURE);
                     return FINISHED_INPUT;
                 }
             }
+
             if(execvp(args2[0], args2) == -1)
             {
                 perror("Problem executing command 2");
@@ -463,51 +369,31 @@ int startPipedOperation(char **args1, char **args2)
         }
     } else
     {
+        // child 1
         setsid();
         close(pfd[0]);
         dup2(pfd[1], STDOUT_FILENO);
 
-        if(redirOut1 >= 0)
+        if (redirOut1 >= 0)
         {
-            if(redirOut1+1 < argCount1)
+            if(setRedirOut(args1, redirOut1, writeFilePointer, argCount1) == -1)
             {
-                writeFilePointer = fopen(args1[redirOut1 + 1], "w+");
-                if (writeFilePointer)
-                {
-                    dup2(fileno(writeFilePointer), STDOUT_FILENO);
-                    removeRedirArgs(args1, redirOut1);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n",args1[redirOut1 + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
 
-        if(redirIn1 >= 0)
+        if (redirIn1 >= 0)
         {
-            if(redirIn1+1 < argCount1)
+            if(setRedirIn(args1, redirIn1, readFilePointer, argCount1) == -1)
             {
-                readFilePointer = fopen(args1[redirIn1+1], "r");
-                if(readFilePointer)
-                {
-                    dup2(fileno(readFilePointer), STDIN_FILENO);
-                    removeRedirArgs(args1, redirIn1);
-                } else
-                {
-                    fprintf(stderr, "Cannot open file %s\n",args1[redirIn1 + 1]);
-                    return FINISHED_INPUT;
-                }
-            } else
-            {
-                fprintf(stderr, "Invalid Expression");
+                removeLastFromJobs(jobs, pactiveJobsSize);
+                _exit(EXIT_FAILURE);
                 return FINISHED_INPUT;
             }
         }
+
         if(execvp(args1[0], args1) == -1)
         {
             perror("Problem executing command 1");
